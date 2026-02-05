@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -7,9 +7,21 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+import { useAuth } from "../../src/auth/AuthContext";
+import { useApp } from "../../src/app/AppContext";
 
 export default function SearchScreen() {
   const [query, setQuery] = useState("");
+  const router = useRouter();
+  const { token } = useAuth();
+  const { event } = useApp();
+
+  useEffect(() => {
+    if (token && !event?.id) {
+      router.replace("/(tabs)/logout");
+    }
+  }, [token, event?.id, router]);
 
   return (
     <SafeAreaView style={styles.container}>

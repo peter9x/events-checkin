@@ -13,10 +13,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useAuth } from "../src/auth/AuthContext";
+import { useApp } from "../src/app/AppContext";
 
 export default function LoginScreen() {
   const router = useRouter();
   const { setSession, rememberMe, setRememberMe } = useAuth();
+  const { event, applyStatsFromResponse, setProfileFromUser } = useApp();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -50,6 +52,7 @@ export default function LoginScreen() {
       });
 
       const payload = await response.json().catch(() => null);
+      applyStatsFromResponse(payload);
 
       if (!response.ok) {
         const message =
@@ -70,8 +73,13 @@ export default function LoginScreen() {
       }
 
       await setSession(user, token);
+      setProfileFromUser(user as Record<string, unknown>);
       setSuccess("Signed in successfully.");
-      router.replace("/(tabs)/scan");
+      if (event?.id) {
+        router.replace("/(tabs)/scan");
+      } else {
+        router.replace("/(tabs)/logout");
+      }
     } catch (err) {
       console.log(err);
       setError("Network error. Please try again.");

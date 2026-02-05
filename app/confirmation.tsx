@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Image,
   Pressable,
@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuth } from "../src/auth/AuthContext";
 import { useCheckin } from "../src/checkin/CheckinContext";
+import { useApp } from "../src/app/AppContext";
 
 const API_BASE_URL = "http://192.168.1.251:8000/api/v1";
 
@@ -18,8 +19,15 @@ export default function ConfirmationPage() {
   const router = useRouter();
   const { token, clearSession } = useAuth();
   const { registration, setRegistration } = useCheckin();
+  const { event, applyStatsFromResponse } = useApp();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (token && !event?.id) {
+      router.replace("/(tabs)/logout");
+    }
+  }, [token, event?.id, router]);
 
   if (!registration || !registration.allow_check_in) {
     return (
@@ -42,6 +50,11 @@ export default function ConfirmationPage() {
       return;
     }
 
+    if (!event?.id) {
+      router.replace("/(tabs)/logout");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -52,8 +65,14 @@ export default function ConfirmationPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ registration: registration.id }),
+        body: JSON.stringify({
+          registration: registration.id,
+          event_id: event.id,
+        }),
       });
+
+      const payload = await response.json().catch(() => null);
+      applyStatsFromResponse(payload);
 
       if (response.status === 403) {
         await clearSession();

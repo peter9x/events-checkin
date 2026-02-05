@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -7,28 +7,68 @@ import {
   useCameraPermissions,
 } from "expo-camera";
 import { useRouter } from "expo-router";
+import { useIsFocused } from "@react-navigation/native";
 import { useAuth } from "../../src/auth/AuthContext";
 import { useCheckin } from "../../src/checkin/CheckinContext";
+import { useApp } from "../../src/app/AppContext";
+
+const SCAN_COOLDOWN_MS = 1500;
 
 export default function ScanScreen() {
   const router = useRouter();
   const { token, clearSession } = useAuth();
   const { setRegistration } = useCheckin();
+  const { event, applyStatsFromResponse } = useApp();
   const [permission, requestPermission] = useCameraPermissions();
-  const [scannedCode, setScannedCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scanEnabled, setScanEnabled] = useState(true);
   const isProcessingRef = useRef(false);
+  const scanAllowedRef = useRef(true);
+  const isFocused = useIsFocused();
+  const lastScanRef = useRef<{ value: string | null; at: number }>({
+    value: null,
+    at: 0,
+  });
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (isFocused && token && !event?.id) {
+      router.replace("/(tabs)/logout");
+    }
+
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+
+    if (isFocused) {
+      setError(null);
+      lastScanRef.current = { value: null, at: 0 };
+      if (!isProcessingRef.current) {
+        setLoading(false);
+        scanAllowedRef.current = true;
+        setScanEnabled(true);
+      }
+    } else {
+      scanAllowedRef.current = false;
+      setScanEnabled(false);
+    }
+  }, [isFocused, token, event?.id, router]);
 
   const validateRegistration = useCallback(
     async (registrationValue: string) => {
+      if (!event?.id) {
+        router.replace("/(tabs)/logout");
+        return false;
+      }
       if (!token) {
         setError("Session expired. Please sign in again.");
-        return;
+        return false;
       }
 
       if (isProcessingRef.current) {
-        return;
+        return false;
       }
       isProcessingRef.current = true;
       setLoading(true);
@@ -36,9 +76,9 @@ export default function ScanScreen() {
 
       try {
         const response = await fetch(
-          `http://192.168.1.251:8000/api/v1/checkin/validation?registration=${encodeURIComponent(
+          `http://192.168.1.251:8000/api/v1/checkin/validation?event=${event.id}&registration=${encodeURIComponent(
             registrationValue,
-          )}`,
+          )}&event_id=${encodeURIComponent(String(event.id))}`,
           {
             method: "GET",
             headers: {
@@ -47,55 +87,88 @@ export default function ScanScreen() {
           },
         );
 
+        const payload = await response.json().catch(() => null);
+        applyStatsFromResponse(payload);
+
         if (response.status === 403) {
           await clearSession();
           setRegistration(null);
           router.replace("/login");
-          return;
+          return false;
         }
 
         if (response.status === 404) {
           setError("Inscrição inválida");
-          setScannedCode(null);
-          return;
+          return false;
         }
 
         if (!response.ok) {
           setError("Não foi possível validar a inscrição");
-          setScannedCode(null);
-          return;
+          return false;
         }
 
-        const payload = await response.json().catch(() => null);
         const data = payload?.data ?? payload;
 
         if (!data) {
           setError("Inscrição inválida.");
-          setScannedCode(null);
-          return;
+          return false;
         }
 
         setRegistration(data.registration ?? data);
-        router.push("/confirmation");
+        if (isFocused) {
+          router.push("/confirmation");
+        }
+        return true;
       } catch (err) {
         setError("Erro de rede. Tente novamente.");
-        setScannedCode(null);
+        return false;
       } finally {
         setLoading(false);
         isProcessingRef.current = false;
       }
     },
-    [token, clearSession, router, setRegistration],
+    [token, clearSession, router, setRegistration, isFocused, event?.id, applyStatsFromResponse],
   );
 
   const handleScan = useCallback(
     (result: BarcodeScanningResult) => {
-      if (!loading && !isProcessingRef.current) {
-        setScannedCode(result.data);
-        validateRegistration(result.data);
+      if (!scanAllowedRef.current || isProcessingRef.current) {
+        return;
       }
+
+      const now = Date.now();
+      const lastScan = lastScanRef.current;
+      if (lastScan.value === result.data && now - lastScan.at < SCAN_COOLDOWN_MS) {
+        return;
+      }
+
+      lastScanRef.current = { value: result.data, at: now };
+      scanAllowedRef.current = false;
+      setScanEnabled(false);
+
+      void validateRegistration(result.data).then((success) => {
+        if (success) {
+          return;
+        }
+
+        const elapsed = Date.now() - now;
+        const delay = Math.max(0, SCAN_COOLDOWN_MS - elapsed);
+
+        if (retryTimerRef.current) {
+          clearTimeout(retryTimerRef.current);
+        }
+
+        retryTimerRef.current = setTimeout(() => {
+          if (isFocused) {
+            scanAllowedRef.current = true;
+            setScanEnabled(true);
+            lastScanRef.current = { value: null, at: 0 };
+          }
+          retryTimerRef.current = null;
+        }, delay);
+      });
     },
-    [scannedCode, loading, validateRegistration],
+    [validateRegistration, isFocused],
   );
 
   if (!permission) {
@@ -130,7 +203,9 @@ export default function ScanScreen() {
             style={styles.camera}
             barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
             onBarcodeScanned={
-              loading || isProcessingRef.current ? undefined : handleScan
+              scanEnabled && !loading && !isProcessingRef.current
+                ? handleScan
+                : undefined
             }
           />
           <View style={styles.frame} />
@@ -138,19 +213,6 @@ export default function ScanScreen() {
       </View>
       {loading && <Text style={styles.hint}>A validar...</Text>}
       {error && <Text style={styles.errorText}>{error}</Text>}
-
-      <Pressable
-        style={[styles.button, styles.secondaryButton]}
-        onPress={() => {
-          setScannedCode(null);
-          setError(null);
-          isProcessingRef.current = false;
-        }}
-      >
-        <Text style={[styles.buttonText, styles.secondaryButtonText]}>
-          Reset scan
-        </Text>
-      </Pressable>
     </SafeAreaView>
   );
 }

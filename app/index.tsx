@@ -3,10 +3,12 @@ import { Image, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useAuth } from "../src/auth/AuthContext";
+import { useApp } from "../src/app/AppContext";
 
 export default function Index() {
   const router = useRouter();
   const { token, isRestoring } = useAuth();
+  const { event } = useApp();
 
   useEffect(() => {
     if (isRestoring) {
@@ -14,11 +16,20 @@ export default function Index() {
     }
 
     const timer = setTimeout(() => {
-      router.replace(token ? "/(tabs)/scan" : "/login");
+      if (!token) {
+        router.replace("/login");
+        return;
+      }
+
+      if (event?.id) {
+        router.replace("/(tabs)/scan");
+      } else {
+        router.replace("/(tabs)/logout");
+      }
     }, 1400);
 
     return () => clearTimeout(timer);
-  }, [router, token, isRestoring]);
+  }, [router, token, isRestoring, event?.id]);
 
   return (
     <View style={styles.container}>
