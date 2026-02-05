@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Allow CheckIn to access the camera for QR scanning."
-      }
+      },
+      "bundleIdentifier": "com.anonymous.CheckIn"
     },
     "android": {
       "permissions": [
@@ -54,6 +55,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c149739d-ada8-4593-865d-67fb3d092c81"
+      }
     }
   }
 }

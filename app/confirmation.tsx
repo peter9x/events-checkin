@@ -21,17 +21,16 @@ export default function ConfirmationPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!registration || !registration.athlete) {
+  if (!registration || !registration.allow_check_in) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.card}>
-          <Text style={styles.title}>No registration</Text>
-          <Text style={styles.subtitle}>Scan a QR code to continue.</Text>
+          <Text style={styles.title}>Inscrição invalida</Text>
           <Pressable
             style={styles.button}
             onPress={() => router.replace("/(tabs)/scan")}
           >
-            <Text style={styles.buttonText}>Back to Scan</Text>
+            <Text style={styles.buttonText}>Voltar ao Scan</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -80,9 +79,9 @@ export default function ConfirmationPage() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Confirm Check-In</Text>
+        <Text style={styles.title}>Confirmar Check-In</Text>
         <Text style={styles.subtitle}>
-          Review the athlete details before confirming.
+          Analise os dados do atleta antes de confirmar.
         </Text>
 
         <View style={styles.card}>
@@ -142,7 +141,7 @@ export default function ConfirmationPage() {
           disabled={loading}
         >
           <Text style={styles.buttonText}>
-            {loading ? "Confirming..." : "Confirm CheckIn"}
+            {loading ? "A confirmar..." : "Confirmar Check-In"}
           </Text>
         </Pressable>
       </View>
@@ -153,7 +152,7 @@ export default function ConfirmationPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#F0F0F0",
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -163,20 +162,27 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#0F172A",
+    color: "#292929",
+    marginBottom: 20,
+    textAlign: "center",
   },
   subtitle: {
     marginTop: 8,
     fontSize: 15,
-    color: "#475569",
+    color: "#5A5A5A",
   },
   card: {
     marginTop: 20,
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 24,
+    padding: 22,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#E2E2E2",
+    shadowColor: "#292929",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
   },
   row: {
     flexDirection: "row",
@@ -186,7 +192,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 20,
-    backgroundColor: "#E2E8F0",
+    backgroundColor: "#F0F0F0",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 16,
@@ -199,7 +205,7 @@ const styles = StyleSheet.create({
   avatarFallback: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#475569",
+    color: "#5A5A5A",
   },
   rowInfo: {
     flex: 1,
@@ -207,33 +213,33 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#0F172A",
+    color: "#292929",
   },
   meta: {
     marginTop: 4,
     fontSize: 13,
-    color: "#64748B",
+    color: "#62929E",
   },
   divider: {
     height: 1,
-    backgroundColor: "#E2E8F0",
+    backgroundColor: "#E2E2E2",
     marginVertical: 16,
   },
   sectionTitle: {
     fontSize: 12,
     textTransform: "uppercase",
     letterSpacing: 1,
-    color: "#64748B",
+    color: "#62929E",
     marginTop: 12,
   },
   sectionValue: {
     fontSize: 15,
-    color: "#0F172A",
+    color: "#292929",
     marginTop: 6,
   },
   errorText: {
     marginTop: 16,
-    color: "#DC2626",
+    color: "#B42318",
     fontSize: 13,
   },
   footer: {
@@ -242,13 +248,13 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     padding: 20,
-    backgroundColor: "rgba(248,250,252,0.98)",
+    backgroundColor: "rgba(240,240,240,0.98)",
     borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
+    borderTopColor: "#E2E2E2",
   },
   button: {
-    backgroundColor: "#0EA5E9",
-    borderRadius: 12,
+    backgroundColor: "#A5BF13",
+    borderRadius: 18,
     paddingVertical: 14,
     alignItems: "center",
   },
@@ -256,7 +262,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   buttonText: {
-    color: "#F8FAFC",
+    color: "#292929",
     fontSize: 16,
     fontWeight: "600",
   },

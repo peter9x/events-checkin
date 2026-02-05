@@ -35,9 +35,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [rememberMe, setRememberMe] = useState(false);
   const [isRestoring, setIsRestoring] = useState(true);
 
+  const canUseSecureStore = async () => {
+    try {
+      return await SecureStore.isAvailableAsync();
+    } catch {
+      return false;
+    }
+  };
+
   useEffect(() => {
     const restore = async () => {
       try {
+        const available = await canUseSecureStore();
+        if (!available) {
+          return;
+        }
         const storedRemember = await SecureStore.getItemAsync(
           "checkin.rememberMe"
         );
@@ -72,25 +84,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession: async (nextUser: User, nextToken: string) => {
         setUser(nextUser);
         setToken(nextToken);
-        if (rememberMe) {
-          await SecureStore.setItemAsync("checkin.rememberMe", "true");
-          await SecureStore.setItemAsync("checkin.authToken", nextToken);
-          await SecureStore.setItemAsync(
-            "checkin.user",
-            JSON.stringify(nextUser)
-          );
-        } else {
-          await SecureStore.deleteItemAsync("checkin.rememberMe");
-          await SecureStore.deleteItemAsync("checkin.authToken");
-          await SecureStore.deleteItemAsync("checkin.user");
+        try {
+          const available = await canUseSecureStore();
+          if (!available) {
+            return;
+          }
+          if (rememberMe) {
+            await SecureStore.setItemAsync("checkin.rememberMe", "true");
+            await SecureStore.setItemAsync("checkin.authToken", nextToken);
+            await SecureStore.setItemAsync(
+              "checkin.user",
+              JSON.stringify(nextUser)
+            );
+          } else {
+            await SecureStore.deleteItemAsync("checkin.rememberMe");
+            await SecureStore.deleteItemAsync("checkin.authToken");
+            await SecureStore.deleteItemAsync("checkin.user");
+          }
+        } catch {
+          // Ignore persistence errors to avoid blocking login.
         }
       },
       clearSession: async () => {
         setUser(null);
         setToken(null);
-        await SecureStore.deleteItemAsync("checkin.rememberMe");
-        await SecureStore.deleteItemAsync("checkin.authToken");
-        await SecureStore.deleteItemAsync("checkin.user");
+        try {
+          const available = await canUseSecureStore();
+          if (!available) {
+            return;
+          }
+          await SecureStore.deleteItemAsync("checkin.rememberMe");
+          await SecureStore.deleteItemAsync("checkin.authToken");
+          await SecureStore.deleteItemAsync("checkin.user");
+        } catch {
+          // Ignore persistence errors to avoid blocking logout.
+        }
       },
     }),
     [token, user, rememberMe, isRestoring]

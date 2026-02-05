@@ -24,7 +24,7 @@ export default function SearchScreen() {
           value={query}
           onChangeText={setQuery}
           placeholder="e.g. Ana Costa or 245"
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor="#8A8A8A"
           style={styles.input}
         />
         <Pressable style={styles.button}>
@@ -45,70 +45,75 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#F0F0F0",
     paddingHorizontal: 20,
     paddingTop: 12,
   },
   title: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#0F172A",
+    color: "#292929",
   },
   subtitle: {
     marginTop: 8,
     fontSize: 15,
-    color: "#475569",
+    color: "#5A5A5A",
   },
   card: {
     marginTop: 24,
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 24,
+    padding: 22,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#E2E2E2",
+    shadowColor: "#292929",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
   },
   label: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#334155",
+    color: "#292929",
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderColor: "#D7D7D7",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     fontSize: 15,
-    color: "#0F172A",
+    color: "#292929",
     marginBottom: 16,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#F7F7F7",
   },
   button: {
-    backgroundColor: "#0EA5E9",
-    borderRadius: 12,
+    backgroundColor: "#A5BF13",
+    borderRadius: 16,
     paddingVertical: 12,
     alignItems: "center",
   },
   buttonText: {
-    color: "#F8FAFC",
+    color: "#292929",
     fontSize: 15,
     fontWeight: "600",
   },
   emptyState: {
     marginTop: 24,
     padding: 20,
-    borderRadius: 16,
-    backgroundColor: "rgba(14, 165, 233, 0.08)",
+    borderRadius: 20,
+    backgroundColor: "rgba(98, 146, 158, 0.14)",
   },
   emptyTitle: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#0F172A",
+    color: "#292929",
     marginBottom: 6,
   },
   emptyText: {
     fontSize: 13,
-    color: "#475569",
+    color: "#5A5A5A",
   },
 });

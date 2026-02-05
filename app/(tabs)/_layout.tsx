@@ -7,15 +7,29 @@ export default function TabsLayout() {
       initialRouteName="scan"
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#0EA5E9",
-        tabBarInactiveTintColor: "#94A3B8",
+        tabBarActiveTintColor: "#A5BF13",
+        tabBarInactiveTintColor: "#8A8A8A",
         tabBarStyle: {
-          borderTopColor: "#E2E8F0",
-          backgroundColor: "#F8FAFC",
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 64,
+          borderRadius: 0,
+          borderTopWidth: 0,
+          backgroundColor: "#FFFFFF",
+          shadowColor: "#292929",
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.15,
+          shadowRadius: 16,
+          elevation: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 10,
           fontWeight: "600",
+        },
+        tabBarItemStyle: {
+          paddingVertical: 6,
         },
       }}
     >
@@ -40,9 +54,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="logout"
         options={{
-          title: "Logout",
+          title: "Account",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="log-out-outline" color={color} size={size} />
+            <Ionicons name="person-circle-outline" color={color} size={size} />
           ),
         }}
       />

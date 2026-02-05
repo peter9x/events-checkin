@@ -18,7 +18,7 @@ export default function LogoutScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.title}>Logout</Text>
+        <Text style={styles.title}>Account</Text>
         <Text style={styles.subtitle}>
           Signed in as {user?.name || user?.email || "team member"}.
         </Text>
@@ -33,37 +33,42 @@ export default function LogoutScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#F0F0F0",
     paddingHorizontal: 20,
     paddingTop: 12,
   },
   card: {
     marginTop: 32,
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 24,
+    padding: 22,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#E2E2E2",
+    shadowColor: "#292929",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
   },
   title: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#0F172A",
+    color: "#292929",
   },
   subtitle: {
     marginTop: 8,
     fontSize: 14,
-    color: "#475569",
+    color: "#5A5A5A",
   },
   button: {
     marginTop: 20,
-    backgroundColor: "#EF4444",
-    borderRadius: 12,
+    backgroundColor: "#292929",
+    borderRadius: 16,
     paddingVertical: 12,
     alignItems: "center",
   },
   buttonText: {
-    color: "#F8FAFC",
+    color: "#F0F0F0",
     fontSize: 15,
     fontWeight: "600",
   },
