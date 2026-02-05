@@ -3,7 +3,7 @@ import { Image, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useAuth } from "../src/auth/AuthContext";
-import { useApp } from "../src/app/AppContext";
+import { useApp } from "../src/context/AppContext";
 
 export default function Index() {
   const router = useRouter();

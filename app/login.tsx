@@ -13,7 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useAuth } from "../src/auth/AuthContext";
-import { useApp } from "../src/app/AppContext";
+import { useApp } from "../src/context/AppContext";
 
 export default function LoginScreen() {
   const router = useRouter();

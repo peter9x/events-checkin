@@ -9,7 +9,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../src/auth/AuthContext";
-import { useApp } from "../../src/app/AppContext";
+import { useApp } from "../../src/context/AppContext";
 
 export default function SearchScreen() {
   const [query, setQuery] = useState("");

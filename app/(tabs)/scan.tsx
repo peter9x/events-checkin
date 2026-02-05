@@ -10,7 +10,7 @@ import { useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import { useAuth } from "../../src/auth/AuthContext";
 import { useCheckin } from "../../src/checkin/CheckinContext";
-import { useApp } from "../../src/app/AppContext";
+import { useApp } from "../../src/context/AppContext";
 
 const SCAN_COOLDOWN_MS = 1500;
 

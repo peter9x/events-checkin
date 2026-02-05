@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../src/auth/AuthContext";
-import { AppEvent, useApp } from "../../src/app/AppContext";
+import { AppEvent, useApp } from "../../src/context/AppContext";
 
 const API_BASE_URL = "http://192.168.1.251:8000/api/v1";
 

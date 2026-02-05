@@ -11,7 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuth } from "../src/auth/AuthContext";
 import { useCheckin } from "../src/checkin/CheckinContext";
-import { useApp } from "../src/app/AppContext";
+import { useApp } from "../src/context/AppContext";
 
 const API_BASE_URL = "http://192.168.1.251:8000/api/v1";
 

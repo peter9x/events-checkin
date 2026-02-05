@@ -33,7 +33,9 @@ type AppContextValue = {
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 
-function normalizeProfile(user: Record<string, unknown> | null): AppProfile | null {
+function normalizeProfile(
+  user: Record<string, unknown> | null,
+): AppProfile | null {
   if (!user) {
     return null;
   }
@@ -61,9 +63,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [event, setEvent] = useState<AppEvent | null>(null);
   const [stats, setStats] = useState<AppStats>(null);
 
-  const setProfileFromUser = useCallback((nextUser: Record<string, unknown> | null) => {
-    setProfile(normalizeProfile(nextUser));
-  }, []);
+  const setProfileFromUser = useCallback(
+    (nextUser: Record<string, unknown> | null) => {
+      setProfile(normalizeProfile(nextUser));
+    },
+    [],
+  );
 
   const clearAppState = useCallback(() => {
     setProfile(null);
@@ -98,7 +103,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       clearAppState,
       applyStatsFromResponse,
     }),
-    [profile, event, stats, clearAppState, applyStatsFromResponse, setProfileFromUser]
+    [
+      profile,
+      event,
+      stats,
+      clearAppState,
+      applyStatsFromResponse,
+      setProfileFromUser,
+    ],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
