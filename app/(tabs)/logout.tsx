@@ -8,17 +8,27 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../src/auth/AuthContext";
+import { useRouter } from "expo-router";
+import { useCheckin } from "../../src/checkin/CheckinContext";
 import { AppEvent, useApp } from "../../src/context/AppContext";
 
 const API_BASE_URL = "http://192.168.1.251:8000/api/v1";
 
 export default function LogoutScreen() {
-  const { token } = useAuth();
+  const router = useRouter();
+  const { token, clearSession } = useAuth();
+  const { setRegistration } = useCheckin();
   const { profile, event, setEvent, applyStatsFromResponse } = useApp();
   const [eventOptions, setEventOptions] = useState<AppEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await clearSession();
+    setRegistration(null);
+    router.replace("/login");
+  };
 
   useEffect(() => {
     if (!token) {
@@ -103,17 +113,16 @@ export default function LogoutScreen() {
     if (event?.name) {
       return event.name;
     }
-    return eventsLoading ? "Loading events..." : "Select an event";
+    return eventsLoading ? "A carregar eventos..." : "Selecionar evento";
   }, [event?.name, eventsLoading]);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.card}>
-          <Text style={styles.title}>Account</Text>
-          <Text style={styles.subtitle}>User info</Text>
+          <Text style={styles.title}>A minha conta</Text>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Name</Text>
+            <Text style={styles.infoLabel}>Nome</Text>
             <Text style={styles.infoValue}>
               {profile?.name || profile?.email || "Team Member"}
             </Text>
@@ -125,19 +134,19 @@ export default function LogoutScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Stats</Text>
+          <Text style={styles.sectionLabel}>Log</Text>
           <View style={styles.statsRow}>
             <Text style={styles.statsLabel}>Total check-ins</Text>
             <Text style={styles.statsValue}>128</Text>
           </View>
           <View style={styles.statsRow}>
-            <Text style={styles.statsLabel}>Average check-in time</Text>
+            <Text style={styles.statsLabel}>Media de tempo check-in</Text>
             <Text style={styles.statsValue}>14s</Text>
           </View>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Current event</Text>
+          <Text style={styles.sectionLabel}>Evento</Text>
           <Pressable
             style={styles.dropdown}
             onPress={() => setDropdownOpen((open) => !open)}
@@ -149,12 +158,12 @@ export default function LogoutScreen() {
               {eventsLoading ? (
                 <View style={styles.dropdownRow}>
                   <ActivityIndicator color="#292929" />
-                  <Text style={styles.dropdownHint}>Fetching events...</Text>
+                  <Text style={styles.dropdownHint}>A obter eventos...</Text>
                 </View>
               ) : eventsError ? (
                 <Text style={styles.dropdownError}>{eventsError}</Text>
               ) : eventOptions.length === 0 ? (
-                <Text style={styles.dropdownHint}>No events available.</Text>
+                <Text style={styles.dropdownHint}>Sem eventos disponíveis</Text>
               ) : (
                 eventOptions.map((option) => {
                   const isSelected = event?.id === option.id;
@@ -184,6 +193,12 @@ export default function LogoutScreen() {
               )}
             </View>
           )}
+        </View>
+
+        <View style={styles.footer}>
+          <Pressable style={styles.button} onPress={handleLogout}>
+            <Text style={styles.buttonText}>Terminar sessão</Text>
+          </Pressable>
         </View>
       </View>
     </SafeAreaView>
@@ -314,15 +329,20 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#292929",
   },
+  footer: {
+    paddingBottom: 50,
+  },
   button: {
-    marginTop: 20,
+    marginTop: 12,
     backgroundColor: "#292929",
-    borderRadius: 16,
+    borderRadius: 25,
+    height: 50,
     paddingVertical: 12,
     alignItems: "center",
   },
   buttonText: {
     color: "#F0F0F0",
+    backgroundColor: "#292929",
     fontSize: 15,
     fontWeight: "600",
   },

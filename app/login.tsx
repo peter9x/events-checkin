@@ -34,7 +34,7 @@ export default function LoginScreen() {
     setSuccess(null);
 
     if (!email.trim() || !password) {
-      setError("Please enter your email and password.");
+      setError("Por favor, preencher email e password");
       return;
     }
 
@@ -58,7 +58,7 @@ export default function LoginScreen() {
         const message =
           payload?.message ||
           payload?.error ||
-          `Login failed (${response.status})`;
+          `Erro de autenticação. (${response.status})`;
         setError(message);
         return;
       }
@@ -68,13 +68,13 @@ export default function LoginScreen() {
       const user = payload?.user || payload?.data?.user;
 
       if (!token || !user) {
-        setError("Unexpected login response. Missing user or token.");
+        setError("Erro de autenticação.");
         return;
       }
 
       await setSession(user, token);
       setProfileFromUser(user as Record<string, unknown>);
-      setSuccess("Signed in successfully.");
+      setSuccess("Autenticação com sucesso.");
       if (event?.id) {
         router.replace("/(tabs)/scan");
       } else {
@@ -82,7 +82,7 @@ export default function LoginScreen() {
       }
     } catch (err) {
       console.log(err);
-      setError("Network error. Please try again.");
+      setError("Erro de conexão.");
     } finally {
       setLoading(false);
     }
@@ -93,18 +93,13 @@ export default function LoginScreen() {
       <StatusBar style="dark" />
       <View style={styles.background}>
         <View style={styles.topGlow} />
-        <View style={styles.bottomGlow} />
       </View>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.header}>
-          <Text style={styles.eyebrow}>Welcome back</Text>
-          <Text style={styles.title}>Sign in to CheckIn</Text>
-          <Text style={styles.subtitle}>
-            Keep your events moving with a quick, secure login.
-          </Text>
+          <Text style={styles.title}>Login</Text>
         </View>
 
         <View style={styles.card}>
@@ -112,7 +107,7 @@ export default function LoginScreen() {
           <TextInput
             value={email}
             onChangeText={setEmail}
-            placeholder="you@example.com"
+            placeholder="hello@mupy.io"
             placeholderTextColor="#8A8A8A"
             keyboardType="email-address"
             autoCapitalize="none"
@@ -137,7 +132,7 @@ export default function LoginScreen() {
             <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
               {rememberMe && <View style={styles.checkboxDot} />}
             </View>
-            <Text style={styles.rememberText}>Keep me signed in</Text>
+            <Text style={styles.rememberText}>Manter sessão iniciada</Text>
           </Pressable>
 
           {(error || success) && (
@@ -162,12 +157,15 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color="#F8FAFC" />
             ) : (
-              <Text style={styles.buttonText}>Sign in</Text>
+              <Text style={styles.buttonText}>Entrar</Text>
             )}
           </Pressable>
         </View>
+        
 
       </KeyboardAvoidingView>
+
+      <Text style={styles.copyright}>MUPY</Text>
     </SafeAreaView>
   );
 }
@@ -190,35 +188,31 @@ const styles = StyleSheet.create({
     top: -150,
     left: -80,
   },
-  bottomGlow: {
-    position: "absolute",
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: "#62929E",
-    opacity: 0.18,
-    bottom: -140,
-    right: -60,
-  },
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingTop: 24,
   },
   header: {
     marginBottom: 24,
   },
-  eyebrow: {
+  copyright: {
     fontSize: 13,
     fontWeight: "600",
     color: "#62929E",
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 6,
+    position:"absolute",
+    bottom: 20,
+    textAlign:"center",
+    right:0,
+    left:0
   },
   title: {
     fontSize: 28,
     fontWeight: "700",
+    textAlign: "center",
     color: "#292929",
   },
   subtitle: {
@@ -228,14 +222,14 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   card: {
-    backgroundColor: "#FFFFFF",
+    //backgroundColor: "#FFFFFF",
     borderRadius: 24,
-    padding: 22,
-    shadowColor: "#292929",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 6,
+    padding: 16,
+    //shadowColor: "#292929",
+    //shadowOffset: { width: 0, height: 12 },
+    //shadowOpacity: 0.12,
+    //shadowRadius: 18,
+    //elevation: 6,
   },
   label: {
     fontSize: 13,
