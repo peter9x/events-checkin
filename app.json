@@ -30,7 +30,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.CheckIn"
+      "package": "com.mupygo.checkin"
     },
     "web": {
       "output": "static",

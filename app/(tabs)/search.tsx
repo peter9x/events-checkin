@@ -19,7 +19,7 @@ import {
   useCheckin,
 } from "../../src/checkin/CheckinContext";
 
-const API_BASE_URL = "http://192.168.1.251:8000/api/v1";
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 const SEARCH_OPTIONS = [
   { key: "bib_number", label: "Dorsal" },
@@ -148,13 +148,18 @@ export default function SearchScreen() {
         </Text>
 
         <View style={styles.card}>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder=""
-            placeholderTextColor="#8A8A8A"
-            style={styles.input}
-          />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder=""
+          placeholderTextColor="#8A8A8A"
+          keyboardType={
+            searchParam === "bib_number" || searchParam === "code"
+              ? "numeric"
+              : "default"
+          }
+          style={styles.input}
+        />
 
           <View style={styles.paramGroup}>
             {SEARCH_OPTIONS.map((option) => {
@@ -264,11 +269,13 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "700",
     color: "#292929",
+    textAlign: "center",
   },
   subtitle: {
     marginTop: 8,
     fontSize: 15,
     color: "#5A5A5A",
+    textAlign: "center",
   },
   card: {
     marginTop: 24,
@@ -278,10 +285,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E2E2",
     shadowColor: "#292929",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
   },
   label: {
     fontSize: 13,
@@ -353,10 +360,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E2E2",
     shadowColor: "#292929",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
   },
   resultInfo: {
     marginBottom: 12,

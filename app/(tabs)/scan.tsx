@@ -14,6 +14,8 @@ import { useApp } from "../../src/context/AppContext";
 
 const SCAN_COOLDOWN_MS = 1500;
 
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+
 export default function ScanScreen() {
   const router = useRouter();
   const { token, clearSession } = useAuth();
@@ -76,7 +78,7 @@ export default function ScanScreen() {
 
       try {
         const response = await fetch(
-          `http://192.168.1.251:8000/api/v1/checkin/validation?event=${event.id}&registration=${encodeURIComponent(
+          `${API_BASE_URL}/checkin/validation?event=${event.id}&registration=${encodeURIComponent(
             registrationValue,
           )}&event_id=${encodeURIComponent(String(event.id))}`,
           {
@@ -239,7 +241,7 @@ const styles = StyleSheet.create({
   cameraCard: {
     marginTop: 24,
     backgroundColor: "#FFFFFF",
-    borderRadius: 24,
+    borderRadius: 10,
     padding: 12,
     shadowColor: "#292929",
     shadowOffset: { width: 0, height: 10 },
@@ -270,15 +272,15 @@ const styles = StyleSheet.create({
   resultCard: {
     marginTop: 20,
     padding: 18,
-    borderRadius: 20,
+    borderRadius: 10,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E2E2E2",
     shadowColor: "#292929",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
   },
   resultLabel: {
     textAlign: "center",
@@ -309,17 +311,22 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 22,
+    borderRadius: 10,
     padding: 20,
     borderWidth: 1,
     borderColor: "#E2E2E2",
     marginTop: 40,
+    shadowColor: "#292929",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
   },
   button: {
     textAlign: "center",
     marginTop: 16,
     backgroundColor: "#A5BF13",
-    borderRadius: 16,
+    borderRadius: 5,
     paddingVertical: 12,
     alignItems: "center",
   },

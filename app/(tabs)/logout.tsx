@@ -12,7 +12,7 @@ import { useRouter } from "expo-router";
 import { useCheckin } from "../../src/checkin/CheckinContext";
 import { AppEvent, useApp } from "../../src/context/AppContext";
 
-const API_BASE_URL = "http://192.168.1.251:8000/api/v1";
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export default function LogoutScreen() {
   const router = useRouter();
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 24,
+    borderRadius: 10,
     padding: 22,
     borderWidth: 1,
     borderColor: "#E2E2E2",
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: 14,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: "#E2E2E2",
     backgroundColor: "#F8F8F8",
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   },
   dropdownList: {
     marginTop: 8,
-    borderRadius: 14,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: "#E2E2E2",
     backgroundColor: "#FFFFFF",
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   button: {
     marginTop: 12,
     backgroundColor: "#292929",
-    borderRadius: 25,
+    borderRadius: 5,
     height: 50,
     paddingVertical: 12,
     alignItems: "center",

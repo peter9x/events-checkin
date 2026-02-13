@@ -13,7 +13,7 @@ import { useAuth } from "../src/auth/AuthContext";
 import { useCheckin } from "../src/checkin/CheckinContext";
 import { useApp } from "../src/context/AppContext";
 
-const API_BASE_URL = "http://192.168.1.251:8000/api/v1";
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export default function ConfirmationPage() {
   const router = useRouter();
@@ -99,9 +99,6 @@ export default function ConfirmationPage() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.title}>Confirmar Check-In</Text>
-        <Text style={styles.subtitle}>
-          Analise os dados do atleta antes de confirmar.
-        </Text>
 
         <View style={styles.card}>
           <View style={styles.row}>
@@ -122,20 +119,20 @@ export default function ConfirmationPage() {
                 {registration.athlete.firstname} {registration.athlete.lastname}
               </Text>
               <Text style={styles.meta}>
-                ID: {registration.athlete.identification_number}
+                Nº Ident.: {registration.athlete.identification_number}
               </Text>
               <Text style={styles.meta}>
-                Bib: {registration.bib_number ?? "N/A"}
+                Dorsal: {registration.bib_number ?? "N/A"}
               </Text>
             </View>
           </View>
 
           <View style={styles.divider} />
 
-          <Text style={styles.sectionTitle}>Event</Text>
+          <Text style={styles.sectionTitle}>Evento</Text>
           <Text style={styles.sectionValue}>{registration.event.name}</Text>
 
-          <Text style={styles.sectionTitle}>Course</Text>
+          <Text style={styles.sectionTitle}>Percurso</Text>
           <Text style={styles.sectionValue}>{registration.course.name}</Text>
 
           {registration.extras && registration.extras.length > 0 && (
@@ -171,10 +168,10 @@ export default function ConfirmationPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: 16,
     backgroundColor: "#F0F0F0",
   },
   scrollContent: {
-    paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 120,
   },
@@ -193,7 +190,7 @@ const styles = StyleSheet.create({
   card: {
     marginTop: 20,
     backgroundColor: "#FFFFFF",
-    borderRadius: 24,
+    borderRadius: 10,
     padding: 22,
     borderWidth: 1,
     borderColor: "#E2E2E2",
@@ -273,7 +270,7 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: "#A5BF13",
-    borderRadius: 18,
+    borderRadius: 5,
     paddingVertical: 14,
     alignItems: "center",
   },

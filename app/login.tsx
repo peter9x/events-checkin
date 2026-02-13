@@ -15,6 +15,8 @@ import { useRouter } from "expo-router";
 import { useAuth } from "../src/auth/AuthContext";
 import { useApp } from "../src/context/AppContext";
 
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+
 export default function LoginScreen() {
   const router = useRouter();
   const { setSession, rememberMe, setRememberMe } = useAuth();
@@ -40,7 +42,7 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch("http://192.168.1.251:8000/api/v1/auth", {
+      const response = await fetch(`${API_BASE_URL}/auth`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -222,14 +224,16 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   card: {
-    //backgroundColor: "#FFFFFF",
-    borderRadius: 24,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
     padding: 16,
-    //shadowColor: "#292929",
-    //shadowOffset: { width: 0, height: 12 },
-    //shadowOpacity: 0.12,
-    //shadowRadius: 18,
-    //elevation: 6,
+    borderWidth: 1,
+    borderColor: "#E2E2E2",
+    shadowColor: "#292929",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
   },
   label: {
     fontSize: 13,
@@ -240,7 +244,7 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: "#D7D7D7",
-    borderRadius: 16,
+    borderRadius: 5,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
@@ -261,7 +265,7 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: "#A5BF13",
-    borderRadius: 18,
+    borderRadius: 5,
     paddingVertical: 14,
     alignItems: "center",
   },
@@ -281,7 +285,7 @@ const styles = StyleSheet.create({
   checkbox: {
     width: 22,
     height: 22,
-    borderRadius: 8,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: "#C9C9C9",
     alignItems: "center",
