@@ -44,10 +44,10 @@ export default function Index() {
             resizeMode="contain"
           />
         </View>
-        <Text style={styles.title}>CheckIn</Text>
-        <Text style={styles.subtitle}>Smooth event access in seconds.</Text>
+        <Text style={styles.title}>Check In</Text>
+        <Text style={styles.subtitle}>MUPY</Text>
       </View>
-      <Text style={styles.footer}>Loading your workspace...</Text>
+      <Text style={styles.footer}>Loading...</Text>
     </View>
   );
 }
@@ -55,7 +55,7 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0B1220",
+    backgroundColor: "#111111",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     width: 280,
     height: 280,
     borderRadius: 140,
-    backgroundColor: "#2563EB",
+    backgroundColor: "#333333",
     opacity: 0.35,
     top: -70,
     right: -60,
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 110,
-    backgroundColor: "#06B6D4",
+    backgroundColor: "#323232",
     opacity: 0.25,
     bottom: -60,
     left: -40,
@@ -93,8 +93,8 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   logo: {
-    width: 72,
-    height: 72,
+    width: 110,
+    height: 110,
   },
   title: {
     fontSize: 30,

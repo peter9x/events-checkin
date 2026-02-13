@@ -120,7 +120,7 @@ export default function LogoutScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.card}>
-          <Text style={styles.title}>A minha conta</Text>
+          <Text style={styles.title}>A minha conta</Text> 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Nome</Text>
             <Text style={styles.infoValue}>

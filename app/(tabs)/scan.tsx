@@ -34,7 +34,7 @@ export default function ScanScreen() {
 
   useEffect(() => {
     if (isFocused && token && !event?.id) {
-      router.replace("/(tabs)/logout");
+      router.navigate("/(tabs)/logout");
     }
 
     if (retryTimerRef.current) {
@@ -59,7 +59,7 @@ export default function ScanScreen() {
   const validateRegistration = useCallback(
     async (registrationValue: string) => {
       if (!event?.id) {
-        router.replace("/(tabs)/logout");
+        router.navigate("/(tabs)/logout");
         return false;
       }
       if (!token) {
