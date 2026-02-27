@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuth } from "../src/auth/AuthContext";
-import { useCheckin } from "../src/checkin/CheckinContext";
+import { RecentCheckin, useCheckin } from "../src/checkin/CheckinContext";
 import { useApp } from "../src/context/AppContext";
 import { Background } from "@react-navigation/elements";
 
@@ -19,7 +19,8 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 export default function ConfirmationPage() {
   const router = useRouter();
   const { token, clearSession } = useAuth();
-  const { registration, setRegistration } = useCheckin();
+  const { registration, setRegistration, addRecentCheckin, clearRecentCheckins } =
+    useCheckin();
   const { event, applyStatsFromResponse } = useApp();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export default function ConfirmationPage() {
       if (response.status === 403) {
         await clearSession();
         setRegistration(null);
+        clearRecentCheckins();
         router.replace("/login");
         return;
       }
@@ -75,6 +77,25 @@ export default function ConfirmationPage() {
         return;
       }
 
+      const now = Date.now();
+      const shirtExtra = registration.extras?.find(
+        (extra) => extra.type === "shirt" && extra.value
+      );
+      const athleteName =
+        [registration.athlete.firstname, registration.athlete.lastname]
+          .filter(Boolean)
+          .join(" ")
+          .trim() || registration.athlete.name;
+      const recentCheckin: RecentCheckin = {
+        id: `${registration.id}-${now}`,
+        athleteName: athleteName || "—",
+        bibNumber: registration.bib_number ?? null,
+        shirt: shirtExtra?.value ?? null,
+        box: registration.box?.name ?? null,
+        createdAt: now,
+      };
+
+      addRecentCheckin(recentCheckin);
       setRegistration(null);
       router.replace("/(tabs)/scan");
     } catch (err) {

@@ -35,7 +35,7 @@ export default function SearchScreen() {
   const router = useRouter();
   const { token, clearSession } = useAuth();
   const { event, applyStatsFromResponse } = useApp();
-  const { setRegistration } = useCheckin();
+  const { setRegistration, clearRecentCheckins } = useCheckin();
   const isFocused = useIsFocused();
   const tabBarHeight = useBottomTabBarHeight();
 
@@ -137,6 +137,7 @@ export default function SearchScreen() {
       if (response.status === 403) {
         await clearSession();
         setRegistration(null);
+        clearRecentCheckins();
         router.replace("/login");
         return;
       }

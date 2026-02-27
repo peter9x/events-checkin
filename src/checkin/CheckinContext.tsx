@@ -92,24 +92,53 @@ export type RegistrationExtra = {
   status?: string;
 };
 
+export type RecentCheckin = {
+  id: string;
+  athleteName: string;
+  bibNumber: number | null;
+  shirt: string | null;
+  box: string | null;
+  createdAt: number;
+};
+
 type CheckinContextValue = {
   registration: RegistrationResource | null;
   setRegistration: (registration: RegistrationResource | null) => void;
+  recentCheckins: RecentCheckin[];
+  addRecentCheckin: (checkin: RecentCheckin) => void;
+  clearRecentCheckins: () => void;
 };
 
 const CheckinContext = createContext<CheckinContextValue | undefined>(undefined);
+
+const MAX_RECENT_CHECKINS = 50;
 
 export function CheckinProvider({ children }: { children: React.ReactNode }) {
   const [registration, setRegistration] = useState<RegistrationResource | null>(
     null
   );
+  const [recentCheckins, setRecentCheckins] = useState<RecentCheckin[]>([]);
+
+  const addRecentCheckin = (checkin: RecentCheckin) => {
+    setRecentCheckins((current) => [
+      checkin,
+      ...current.filter((item) => item.id !== checkin.id),
+    ].slice(0, MAX_RECENT_CHECKINS));
+  };
+
+  const clearRecentCheckins = () => {
+    setRecentCheckins([]);
+  };
 
   const value = useMemo(
     () => ({
       registration,
       setRegistration,
+      recentCheckins,
+      addRecentCheckin,
+      clearRecentCheckins,
     }),
-    [registration]
+    [registration, recentCheckins]
   );
 
   return (

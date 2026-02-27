@@ -19,7 +19,7 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 export default function ScanScreen() {
   const router = useRouter();
   const { token, clearSession } = useAuth();
-  const { setRegistration } = useCheckin();
+  const { setRegistration, clearRecentCheckins } = useCheckin();
   const { event, applyStatsFromResponse } = useApp();
   const [permission, requestPermission] = useCameraPermissions();
   const [loading, setLoading] = useState(false);
@@ -95,6 +95,7 @@ export default function ScanScreen() {
         if (response.status === 403) {
           await clearSession();
           setRegistration(null);
+          clearRecentCheckins();
           router.replace("/login");
           return false;
         }
