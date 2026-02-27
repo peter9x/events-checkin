@@ -12,6 +12,7 @@ import { useRouter } from "expo-router";
 import { useAuth } from "../src/auth/AuthContext";
 import { useCheckin } from "../src/checkin/CheckinContext";
 import { useApp } from "../src/context/AppContext";
+import { Background } from "@react-navigation/elements";
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -29,20 +30,8 @@ export default function ConfirmationPage() {
     }
   }, [token, event?.id, router]);
 
-  if (!registration || !registration.allow_check_in) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.card}>
-          <Text style={styles.title}>Inscrição invalida</Text>
-          <Pressable
-            style={styles.button}
-            onPress={() => router.replace("/(tabs)/scan")}
-          >
-            <Text style={styles.buttonText}>Voltar ao Scan</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
-    );
+  if (!registration) {
+    return;
   }
 
   const handleConfirm = async () => {
@@ -96,9 +85,27 @@ export default function ConfirmationPage() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={{
+        ...styles.container,
+        backgroundColor: registration.allow_check_in ? "#5cb85c" : "#cd2923",
+      }}
+    >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Confirmar Check-In</Text>
+        {registration.check_in ? (
+          <View
+            style={{
+              padding: 16,
+              borderRadius: 10,
+              backgroundColor: "#ea988c",
+              marginTop: 10,
+            }}
+          >
+            <Text style={styles.title}>Check In Concluido</Text>
+          </View>
+        ) : (
+          <Text style={styles.title}>Confirmar Check-In</Text>
+        )}
 
         <View style={styles.card}>
           <View style={styles.row}>
@@ -139,27 +146,53 @@ export default function ConfirmationPage() {
             <>
               <Text style={styles.sectionTitle}>Extras</Text>
               {registration.extras.map((extra, index) => (
-                <Text key={`${extra.type}-${index}`} style={styles.sectionValue}>
+                <Text
+                  key={`${extra.type}-${index}`}
+                  style={styles.sectionValue}
+                >
                   {extra.type}: {extra.value}
                 </Text>
               ))}
             </>
           )}
         </View>
-
         {error && <Text style={styles.errorText}>{error}</Text>}
       </ScrollView>
 
       <View style={styles.footer}>
-        <Pressable
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleConfirm}
-          disabled={loading}
-        >
-          <Text style={styles.buttonText}>
-            {loading ? "A confirmar..." : "Confirmar Check-In"}
-          </Text>
-        </Pressable>
+        {!registration ||
+        (registration.allow_check_in && !registration.check_in) ? (
+          <Pressable
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleConfirm}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? "A confirmar..." : "Confirmar Check-In"}
+            </Text>
+          </Pressable>
+        ) : (
+          <>
+            <Pressable
+              style={{
+                backgroundColor: "#292929",
+                paddingVertical: 25,
+                alignItems: "center",
+              }}
+              onPress={() => router.replace("/(tabs)/scan")}
+            >
+              <Text
+                style={{
+                  color: "#E2E2E2",
+                  fontSize: 16,
+                  fontWeight: "600",
+                }}
+              >
+                Voltar ao Scan
+              </Text>
+            </Pressable>
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -172,20 +205,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#F0F0F0",
   },
   scrollContent: {
-    paddingTop: 16,
     paddingBottom: 120,
   },
   title: {
     fontSize: 24,
     fontWeight: "700",
     color: "#292929",
-    marginBottom: 20,
     textAlign: "center",
-  },
-  subtitle: {
-    marginTop: 8,
-    fontSize: 15,
-    color: "#5A5A5A",
   },
   card: {
     marginTop: 20,
@@ -207,7 +233,7 @@ const styles = StyleSheet.create({
   avatarWrap: {
     width: 64,
     height: 64,
-    borderRadius: 20,
+    borderRadius: 10,
     backgroundColor: "#F0F0F0",
     alignItems: "center",
     justifyContent: "center",
@@ -216,7 +242,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 64,
     height: 64,
-    borderRadius: 20,
+    borderRadius: 10,
   },
   avatarFallback: {
     fontSize: 22,
@@ -263,22 +289,21 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    padding: 20,
-    backgroundColor: "rgba(240,240,240,0.98)",
-    borderTopWidth: 1,
-    borderTopColor: "#E2E2E2",
+    padding: 0,
+    //backgroundColor: "rgba(240,240,240,0.98)",
+    //borderTopWidth: 1,
+    //borderTopColor: "#E2E2E2",
   },
   button: {
-    backgroundColor: "#A5BF13",
-    borderRadius: 5,
-    paddingVertical: 14,
+    backgroundColor: "#376e37",
+    paddingVertical: 25,
     alignItems: "center",
   },
   buttonDisabled: {
     opacity: 0.7,
   },
   buttonText: {
-    color: "#292929",
+    color: "#E2E2E2",
     fontSize: 16,
     fontWeight: "600",
   },

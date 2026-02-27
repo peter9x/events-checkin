@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../src/auth/AuthContext";
 import { useApp } from "../src/context/AppContext";
 
@@ -23,6 +24,7 @@ export default function LoginScreen() {
   const { event, applyStatsFromResponse, setProfileFromUser } = useApp();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -118,20 +120,34 @@ export default function LoginScreen() {
           />
 
           <Text style={styles.label}>Password</Text>
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="••••••••"
-            placeholderTextColor="#8A8A8A"
-            secureTextEntry
-            style={styles.input}
-          />
+          <View style={styles.inputWrapper}>
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder="••••••••"
+              placeholderTextColor="#8A8A8A"
+              secureTextEntry={!showPassword}
+              style={styles.inputWithIcon}
+            />
+            <Pressable
+              onPress={() => setShowPassword((prev) => !prev)}
+              style={styles.iconButton}
+            >
+              <Ionicons
+                name={showPassword ? "eye-off-outline" : "eye-outline"}
+                size={20}
+                color="#5A5A5A"
+              />
+            </Pressable>
+          </View>
 
           <Pressable
             onPress={() => setRememberMe(!rememberMe)}
             style={styles.rememberRow}
           >
-            <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+            <View
+              style={[styles.checkbox, rememberMe && styles.checkboxChecked]}
+            >
               {rememberMe && <View style={styles.checkboxDot} />}
             </View>
             <Text style={styles.rememberText}>Manter sessão iniciada</Text>
@@ -163,8 +179,6 @@ export default function LoginScreen() {
             )}
           </Pressable>
         </View>
-        
-
       </KeyboardAvoidingView>
 
       <Text style={styles.copyright}>MUPY</Text>
@@ -205,11 +219,11 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 6,
-    position:"absolute",
+    position: "absolute",
     bottom: 20,
-    textAlign:"center",
-    right:0,
-    left:0
+    textAlign: "center",
+    right: 0,
+    left: 0,
   },
   title: {
     fontSize: 28,
@@ -224,16 +238,17 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#E2E2E2",
-    shadowColor: "#292929",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 6,
+    flex: 1,
+    //backgroundColor: "#FFFFFF",
+    //borderRadius: 10,
+    //padding: 16,
+    //borderWidth: 1,
+    //borderColor: "#E2E2E2",
+    //shadowColor: "#292929",
+    //shadowOffset: { width: 0, height: 10 },
+    //shadowOpacity: 0.12,
+    //shadowRadius: 16,
+    //elevation: 6,
   },
   label: {
     fontSize: 13,
@@ -251,6 +266,27 @@ const styles = StyleSheet.create({
     color: "#292929",
     marginBottom: 16,
     backgroundColor: "#F7F7F7",
+  },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#D7D7D7",
+    borderRadius: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 16,
+    backgroundColor: "#F7F7F7",
+  },
+  inputWithIcon: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    fontSize: 15,
+    color: "#292929",
+  },
+  iconButton: {
+    padding: 6,
   },
   feedback: {
     marginBottom: 12,
