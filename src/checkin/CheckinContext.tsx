@@ -5,6 +5,7 @@ export type RegistrationResource = {
   athlete: AthleteDetail;
   event: EventResource;
   course: CourseResource;
+  box?: BoxResource;
   category: {
     id: string;
     name: string;
@@ -13,7 +14,9 @@ export type RegistrationResource = {
   team: {
     name: string;
   };
+  code:number| null;
   extras?: RegistrationExtra[];
+  
   status: string;
   check_in: boolean;
   bib_number: number | null;
@@ -74,6 +77,12 @@ export type CourseResource = {
   id: string;
   name: string;
   distance: string;
+};
+
+export type BoxResource = {
+  id: string;
+  name: string;
+  color: string;
 };
 
 export type RegistrationExtra = {

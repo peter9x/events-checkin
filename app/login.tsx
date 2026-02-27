@@ -178,6 +178,16 @@ export default function LoginScreen() {
               <Text style={styles.buttonText}>Entrar</Text>
             )}
           </Pressable>
+
+          <Pressable
+            onPress={() => router.push("/qr-login")}
+            style={({ pressed }) => [
+              styles.qrButton,
+              pressed && styles.qrButtonPressed,
+            ]}
+          >
+            <Text style={styles.qrButtonText}>Entrar com QR Code</Text>
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
 
@@ -311,6 +321,23 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#292929",
     fontSize: 16,
+    fontWeight: "600",
+  },
+  qrButton: {
+    marginTop: 12,
+    borderRadius: 5,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#A5BF13",
+    backgroundColor: "#FFFFFF",
+  },
+  qrButtonPressed: {
+    opacity: 0.75,
+  },
+  qrButtonText: {
+    color: "#292929",
+    fontSize: 14,
     fontWeight: "600",
   },
   rememberRow: {

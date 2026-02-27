@@ -11,7 +11,8 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Allow CheckIn to access the camera for QR scanning."
+        "NSCameraUsageDescription": "Allow CheckIn to access the camera for QR scanning.",
+        "NSLocationWhenInUseUsageDescription": "Allow CheckIn to access location to read Wi-Fi information."
       },
       "bundleIdentifier": "com.anonymous.CheckIn"
     },
@@ -20,7 +21,10 @@
         "CAMERA",
         "android.permission.CAMERA",
         "CAMERA",
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_WIFI_STATE"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",

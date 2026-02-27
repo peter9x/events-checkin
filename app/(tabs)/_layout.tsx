@@ -1,7 +1,11 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 12);
+
   return (
     <Tabs
       initialRouteName="scan"
@@ -14,7 +18,7 @@ export default function TabsLayout() {
           left: 0,
           right: 0,
           bottom: 0,
-          height: 64,
+          height: 64 + bottomInset,
           borderRadius: 0,
           borderTopWidth: 0,
           backgroundColor: "#FFFFFF",
@@ -23,6 +27,8 @@ export default function TabsLayout() {
           shadowOpacity: 0.15,
           shadowRadius: 16,
           elevation: 8,
+          paddingBottom: bottomInset,
+          paddingTop: 4,
         },
         tabBarLabelStyle: {
           fontSize: 10,

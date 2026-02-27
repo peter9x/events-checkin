@@ -21,17 +21,13 @@ import {
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
-const SEARCH_OPTIONS = [
-  { key: "bib_number", label: "Dorsal" },
-  { key: "identification_number", label: "Nº Identificacao" },
-  { key: "code", label: "Codigo" },
-] as const;
-
-type SearchParam = (typeof SEARCH_OPTIONS)[number]["key"];
+type SearchParam = "bib_number" | "identification_number" | "code";
 
 export default function SearchScreen() {
-  const [query, setQuery] = useState("");
-  const [searchParam, setSearchParam] = useState<SearchParam>("bib_number");
+  const [bibQuery, setBibQuery] = useState("");
+  const [identificationQuery, setIdentificationQuery] = useState("");
+  const [codeQuery, setCodeQuery] = useState("");
+  const [activeParam, setActiveParam] = useState<SearchParam>("bib_number");
   const [results, setResults] = useState<RegistrationResource[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -55,6 +51,37 @@ export default function SearchScreen() {
     setError(null);
   }, [event?.id]);
 
+  const handleFieldChange = (field: SearchParam, value: string) => {
+    setActiveParam(field);
+    if (field === "bib_number") {
+      setBibQuery(value);
+      if (identificationQuery) {
+        setIdentificationQuery("");
+      }
+      if (codeQuery) {
+        setCodeQuery("");
+      }
+      return;
+    }
+    if (field === "identification_number") {
+      setIdentificationQuery(value);
+      if (bibQuery) {
+        setBibQuery("");
+      }
+      if (codeQuery) {
+        setCodeQuery("");
+      }
+      return;
+    }
+    setCodeQuery(value);
+    if (bibQuery) {
+      setBibQuery("");
+    }
+    if (identificationQuery) {
+      setIdentificationQuery("");
+    }
+  };
+
   const handleSearch = async () => {
     if (loading) {
       return;
@@ -68,7 +95,16 @@ export default function SearchScreen() {
       return;
     }
 
-    const trimmedQuery = query.trim();
+    const fields = [
+      { key: "bib_number", value: bibQuery },
+      { key: "identification_number", value: identificationQuery },
+      { key: "code", value: codeQuery },
+    ] as const;
+    const selectedField =
+      fields.find((item) => item.value.trim()) ??
+      fields.find((item) => item.key === activeParam);
+    const trimmedQuery = selectedField?.value.trim() ?? "";
+    const searchParam = selectedField?.key ?? activeParam;
     if (!trimmedQuery) {
       setError("Introduza um valor para pesquisar.");
       setResults([]);
@@ -144,47 +180,41 @@ export default function SearchScreen() {
       >
         <Text style={styles.title}>Pesquisar atletas</Text>
         <Text style={styles.subtitle}>
-          Pesquise atletas por nome, dorsal ou nº de identificação.
+          Pesquise atletas por dorsal, nº de identificação ou código.
         </Text>
 
         <View style={styles.card}>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder=""
-          placeholderTextColor="#8A8A8A"
-          keyboardType={
-            searchParam === "bib_number" || searchParam === "code"
-              ? "numeric"
-              : "default"
-          }
-          style={styles.input}
-        />
+          <Text style={styles.label}>Dorsal</Text>
+          <TextInput
+            value={bibQuery}
+            onChangeText={(value) => handleFieldChange("bib_number", value)}
+            placeholder="Número do dorsal"
+            placeholderTextColor="#8A8A8A"
+            keyboardType="numeric"
+            style={styles.input}
+          />
 
-          <View style={styles.paramGroup}>
-            {SEARCH_OPTIONS.map((option) => {
-              const isSelected = option.key === searchParam;
-              return (
-                <Pressable
-                  key={option.key}
-                  onPress={() => setSearchParam(option.key)}
-                  style={[
-                    styles.paramButton,
-                    isSelected && styles.paramButtonActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.paramButtonText,
-                      isSelected && styles.paramButtonTextActive,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <Text style={styles.label}>Nº de identificação</Text>
+          <TextInput
+            value={identificationQuery}
+            onChangeText={(value) =>
+              handleFieldChange("identification_number", value)
+            }
+            placeholder="Documento de identificação"
+            placeholderTextColor="#8A8A8A"
+            keyboardType="default"
+            style={styles.input}
+          />
+
+          <Text style={styles.label}>Código</Text>
+          <TextInput
+            value={codeQuery}
+            onChangeText={(value) => handleFieldChange("code", value)}
+            placeholder="Código de registo"
+            placeholderTextColor="#8A8A8A"
+            keyboardType="numeric"
+            style={styles.input}
+          />
 
           <Pressable
             style={({ pressed }) => [
@@ -306,32 +336,6 @@ const styles = StyleSheet.create({
     color: "#292929",
     marginBottom: 16,
     backgroundColor: "#F7F7F7",
-  },
-  paramGroup: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 16,
-  },
-  paramButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: "#D7D7D7",
-    backgroundColor: "#F7F7F7",
-  },
-  paramButtonActive: {
-    backgroundColor: "#292929",
-    borderColor: "#292929",
-  },
-  paramButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#292929",
-  },
-  paramButtonTextActive: {
-    color: "#FFFFFF",
   },
   button: {
     backgroundColor: "#292929",

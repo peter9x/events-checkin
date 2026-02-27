@@ -11,6 +11,11 @@ import { useAuth } from "../../src/auth/AuthContext";
 import { useRouter } from "expo-router";
 import { useCheckin } from "../../src/checkin/CheckinContext";
 import { AppEvent, useApp } from "../../src/context/AppContext";
+import { useIsFocused } from "@react-navigation/native";
+import {
+  DeviceInfoSnapshot,
+  getDeviceInfoSnapshot,
+} from "../../src/device/deviceInfo";
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -23,6 +28,9 @@ export default function LogoutScreen() {
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfoSnapshot | null>(null);
+  const [deviceInfoError, setDeviceInfoError] = useState<string | null>(null);
+  const isFocused = useIsFocused();
 
   const handleLogout = async () => {
     await clearSession();
@@ -109,6 +117,31 @@ export default function LogoutScreen() {
     };
   }, [token, event?.id, applyStatsFromResponse]);
 
+  useEffect(() => {
+    if (!isFocused) {
+      return;
+    }
+    let isActive = true;
+    const loadDeviceInfo = async () => {
+      setDeviceInfoError(null);
+      try {
+        const snapshot = await getDeviceInfoSnapshot();
+        if (isActive) {
+          setDeviceInfo(snapshot);
+        }
+      } catch {
+        if (isActive) {
+          setDeviceInfoError("Não foi possível obter dados do posto.");
+        }
+      }
+    };
+
+    loadDeviceInfo();
+    return () => {
+      isActive = false;
+    };
+  }, [isFocused]);
+
   const eventLabel = useMemo(() => {
     if (event?.name) {
       return event.name;
@@ -127,22 +160,40 @@ export default function LogoutScreen() {
               {profile?.name || profile?.email || "Team Member"}
             </Text>
           </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Email</Text>
-            <Text style={styles.infoValue}>{profile?.email || "—"}</Text>
-          </View>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Log</Text>
-          <View style={styles.statsRow}>
-            <Text style={styles.statsLabel}>Total check-ins</Text>
-            <Text style={styles.statsValue}>128</Text>
-          </View>
-          <View style={styles.statsRow}>
-            <Text style={styles.statsLabel}>Media de tempo check-in</Text>
-            <Text style={styles.statsValue}>14s</Text>
-          </View>
+          <Text style={styles.sectionLabel}>Posto</Text>
+          {deviceInfoError ? (
+            <Text style={styles.dropdownError}>{deviceInfoError}</Text>
+          ) : (
+            <>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>IP</Text>
+                <Text style={styles.infoValue}>
+                  {deviceInfo?.ipAddress || "—"}
+                </Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>MAC</Text>
+                <Text style={styles.infoValue}>
+                  {deviceInfo?.macAddress || "—"}
+                </Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Device ID</Text>
+                <Text style={styles.infoValue}>
+                  {deviceInfo?.deviceId || "—"}
+                </Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Rede WiFi</Text>
+                <Text style={styles.infoValue}>
+                  {deviceInfo?.wifiName || "—"}
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
         <View style={styles.card}>
@@ -314,20 +365,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 13,
     color: "#B42318",
-  },
-  statsRow: {
-    marginTop: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  statsLabel: {
-    fontSize: 13,
-    color: "#5A5A5A",
-  },
-  statsValue: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#292929",
   },
   footer: {
     paddingBottom: 50,

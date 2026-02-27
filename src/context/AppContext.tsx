@@ -58,7 +58,7 @@ function normalizeProfile(
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [profile, setProfile] = useState<AppProfile | null>(null);
   const [event, setEvent] = useState<AppEvent | null>(null);
   const [stats, setStats] = useState<AppStats>(null);
@@ -91,6 +91,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       clearAppState();
     }
   }, [token, clearAppState]);
+
+  useEffect(() => {
+    setProfileFromUser(user as Record<string, unknown> | null);
+  }, [user, setProfileFromUser]);
 
   const value = useMemo(
     () => ({

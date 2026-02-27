@@ -129,12 +129,19 @@ export default function ConfirmationPage() {
                 Nº Ident.: {registration.athlete.identification_number}
               </Text>
               <Text style={styles.meta}>
-                Dorsal: {registration.bib_number ?? "N/A"}
+                IDGS: {registration.code ?? "N/A"}
               </Text>
             </View>
           </View>
 
           <View style={styles.divider} />
+
+          <Text style={styles.sectionTitle}>Dorsal</Text>
+          <Text
+            style={{ ...styles.sectionValue, fontSize: 22, fontWeight: "700" }}
+          >
+            {registration.bib_number ?? "N/A"}
+          </Text>
 
           <Text style={styles.sectionTitle}>Evento</Text>
           <Text style={styles.sectionValue}>{registration.event.name}</Text>
@@ -142,17 +149,37 @@ export default function ConfirmationPage() {
           <Text style={styles.sectionTitle}>Percurso</Text>
           <Text style={styles.sectionValue}>{registration.course.name}</Text>
 
+          <Text style={{...styles.sectionTitle, backgroundColor: registration.box?.color ?? "transparent"}}>Box</Text>
+          <Text style={{...styles.sectionValue, backgroundColor: registration.box?.color ?? "transparent"}}>{registration.box?.name ?? "N/A"}</Text>
+
           {registration.extras && registration.extras.length > 0 && (
             <>
               <Text style={styles.sectionTitle}>Extras</Text>
-              {registration.extras.map((extra, index) => (
-                <Text
-                  key={`${extra.type}-${index}`}
-                  style={styles.sectionValue}
-                >
-                  {extra.type}: {extra.value}
-                </Text>
-              ))}
+              {registration.extras.map((extra, index) => {
+                if (extra.type === "shirt") {
+                  return (
+                    <Text
+                      key={`shirt-${extra.type}-${index}`}
+                      style={styles.sectionValue}
+                    >
+                      T-Shirt: {extra.value}
+                    </Text>
+                  );
+                }
+
+                if (extra.type === "transport") {
+                  return (
+                    <Text
+                      key={`transport-${extra.type}-${index}`}
+                      style={styles.sectionValue}
+                    >
+                      Transporte: {extra.value}
+                    </Text>
+                  );
+                }
+
+                return null;
+              })}
             </>
           )}
         </View>
@@ -275,7 +302,8 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   sectionValue: {
-    fontSize: 15,
+    fontSize: 18,
+    fontWeight: "600",
     color: "#292929",
     marginTop: 6,
   },
