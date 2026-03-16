@@ -11,16 +11,18 @@ import { useIsFocused } from "@react-navigation/native";
 import { useAuth } from "../../src/auth/AuthContext";
 import { useCheckin } from "../../src/checkin/CheckinContext";
 import { useApp } from "../../src/context/AppContext";
+import { useApi } from "../../src/api/useApi";
+import { useSessionReset } from "../../src/auth/useSessionReset";
 
 const SCAN_COOLDOWN_MS = 1500;
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
-
 export default function ScanScreen() {
   const router = useRouter();
-  const { token, clearSession } = useAuth();
-  const { setRegistration, clearRecentCheckins } = useCheckin();
+  const { token } = useAuth();
+  const { setRegistration } = useCheckin();
   const { event, applyStatsFromResponse } = useApp();
+  const { request } = useApi();
+  const resetSession = useSessionReset();
   const [permission, requestPermission] = useCameraPermissions();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export default function ScanScreen() {
 
   useEffect(() => {
     if (isFocused && token && !event?.id) {
-      router.navigate("/(tabs)/logout");
+      void resetSession();
     }
 
     if (retryTimerRef.current) {
@@ -56,16 +58,16 @@ export default function ScanScreen() {
       scanAllowedRef.current = false;
       setScanEnabled(false);
     }
-  }, [isFocused, token, event?.id, router]);
+  }, [isFocused, token, event?.id, resetSession]);
 
   const validateRegistration = useCallback(
     async (registrationValue: string) => {
       if (!event?.id) {
-        router.navigate("/(tabs)/logout");
+        await resetSession();
         return false;
       }
       if (!token) {
-        setError("Session expired. Please sign in again.");
+        await resetSession();
         return false;
       }
 
@@ -77,28 +79,22 @@ export default function ScanScreen() {
       setError(null);
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/checkin/validation?event=${event.id}&registration=${encodeURIComponent(
-            registrationValue,
-          )}&event_id=${encodeURIComponent(String(event.id))}`,
+        const { response, payload, unauthorized } = await request(
+          "/checkin/validation",
           {
             method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
+            query: {
+              event: event.id,
+              registration: registrationValue,
             },
           },
         );
 
-        const payload = await response.json().catch(() => null);
-        applyStatsFromResponse(payload);
-
-        if (response.status === 403) {
-          await clearSession();
-          setRegistration(null);
-          clearRecentCheckins();
-          router.replace("/login");
+        if (!response || unauthorized) {
           return false;
         }
+
+        applyStatsFromResponse(payload);
 
         if (response.status === 404) {
           setError("Inscrição inválida");
@@ -130,7 +126,16 @@ export default function ScanScreen() {
         isProcessingRef.current = false;
       }
     },
-    [token, clearSession, router, setRegistration, isFocused, event?.id, applyStatsFromResponse],
+    [
+      token,
+      router,
+      setRegistration,
+      isFocused,
+      event?.id,
+      applyStatsFromResponse,
+      request,
+      resetSession,
+    ],
   );
 
   const handleScan = useCallback(
@@ -270,34 +275,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.75)",
     borderRadius: 18,
   },
-  resultCard: {
-    marginTop: 20,
-    padding: 18,
-    borderRadius: 10,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E2E2",
-    shadowColor: "#292929",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 6,
-  },
-  resultLabel: {
-    textAlign: "center",
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#62929E",
-    marginBottom: 6,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  resultText: {
-    textAlign: "center",
-    fontSize: 14,
-    color: "#292929",
-    marginBottom: 12,
-  },
   hint: {
     textAlign: "center",
     marginTop: 16,
@@ -336,13 +313,5 @@ const styles = StyleSheet.create({
     color: "#292929",
     fontSize: 15,
     fontWeight: "600",
-  },
-  secondaryButton: {
-    textAlign: "center",
-    backgroundColor: "#F0F0F0",
-  },
-  secondaryButtonText: {
-    textAlign: "center",
-    color: "#292929",
   },
 });

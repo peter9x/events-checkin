@@ -21,17 +21,13 @@ type AuthState = {
 };
 
 type AuthContextValue = AuthState & {
-  setSession: (user: User, token: string) => Promise<void>;
   setQrSession: (
     user: User,
     token: string,
     expiresAt: number | null,
   ) => Promise<void>;
   clearSession: () => Promise<void>;
-  rememberMe: boolean;
-  setRememberMe: (value: boolean) => void;
   isRestoring: boolean;
-  sessionType: "password" | "qr" | null;
   sessionExpiresAt: number | null;
 };
 
@@ -40,9 +36,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [rememberMe, setRememberMe] = useState(false);
   const [isRestoring, setIsRestoring] = useState(true);
-  const [sessionType, setSessionType] = useState<"password" | "qr" | null>(null);
   const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
 
   const canUseSecureStore = useCallback(async () => {
@@ -87,9 +81,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!available) {
           return;
         }
-        const storedRemember = await SecureStore.getItemAsync(
-          "checkin.rememberMe",
-        );
         const storedToken = await SecureStore.getItemAsync("checkin.authToken");
         const storedUser = await SecureStore.getItemAsync("checkin.user");
         const storedSessionType =
@@ -98,9 +89,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await SecureStore.getItemAsync("checkin.sessionExpiresAt"),
         );
 
-        const shouldRestore =
-          Boolean(storedToken && storedUser) &&
-          (storedRemember === "true" || storedSessionType === "qr");
+        const hasStoredSession = Boolean(storedToken && storedUser);
+        const shouldRestore = hasStoredSession && storedSessionType === "qr";
 
         if (storedSessionExpiresAt && storedSessionExpiresAt <= Date.now()) {
           await clearStoredSession();
@@ -110,11 +100,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (shouldRestore && storedToken && storedUser) {
           setToken(storedToken);
           setUser(JSON.parse(storedUser));
-          setRememberMe(storedRemember === "true");
-          setSessionType(
-            storedSessionType === "qr" ? "qr" : storedSessionType ? "password" : null,
-          );
           setSessionExpiresAt(storedSessionExpiresAt ?? null);
+        } else if (hasStoredSession) {
+          await clearStoredSession();
         }
       } catch {
         // Ignore restore failures to keep auth usable.
@@ -136,7 +124,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       void clearStoredSession();
       setUser(null);
       setToken(null);
-      setSessionType(null);
       setSessionExpiresAt(null);
       return;
     }
@@ -144,7 +131,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       void clearStoredSession();
       setUser(null);
       setToken(null);
-      setSessionType(null);
       setSessionExpiresAt(null);
     }, remaining);
     return () => clearTimeout(timer);
@@ -154,37 +140,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       token,
       user,
-      rememberMe,
       isRestoring,
-      sessionType,
       sessionExpiresAt,
-      setRememberMe,
-      setSession: async (nextUser: User, nextToken: string) => {
-        setUser(nextUser);
-        setToken(nextToken);
-        setSessionType("password");
-        setSessionExpiresAt(null);
-        try {
-          const available = await canUseSecureStore();
-          if (!available) {
-            return;
-          }
-          if (rememberMe) {
-            await SecureStore.setItemAsync("checkin.rememberMe", "true");
-            await SecureStore.setItemAsync("checkin.authToken", nextToken);
-            await SecureStore.setItemAsync(
-              "checkin.user",
-              JSON.stringify(nextUser)
-            );
-            await SecureStore.setItemAsync("checkin.sessionType", "password");
-            await SecureStore.deleteItemAsync("checkin.sessionExpiresAt");
-          } else {
-            await clearStoredSession();
-          }
-        } catch {
-          // Ignore persistence errors to avoid blocking login.
-        }
-      },
       setQrSession: async (
         nextUser: User,
         nextToken: string,
@@ -192,7 +149,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ) => {
         setUser(nextUser);
         setToken(nextToken);
-        setSessionType("qr");
         setSessionExpiresAt(expiresAt);
         try {
           const available = await canUseSecureStore();
@@ -217,7 +173,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearSession: async () => {
         setUser(null);
         setToken(null);
-        setSessionType(null);
         setSessionExpiresAt(null);
         try {
           await clearStoredSession();
@@ -226,7 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       },
     }),
-    [token, user, rememberMe, isRestoring, sessionType, sessionExpiresAt]
+    [token, user, isRestoring, sessionExpiresAt, canUseSecureStore, clearStoredSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

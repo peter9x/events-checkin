@@ -1,17 +1,23 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useAuth } from "../src/auth/AuthContext";
 import { useApp } from "../src/context/AppContext";
+import { useApi } from "../src/api/useApi";
+import { useSessionReset } from "../src/auth/useSessionReset";
 
 export default function Index() {
   const router = useRouter();
-  const { token, isRestoring } = useAuth();
-  const { event } = useApp();
+  const { token, isRestoring, user } = useAuth();
+  const { event, isHydrating } = useApp();
+  const { request } = useApi();
+  const resetSession = useSessionReset();
+  const [isValidating, setIsValidating] = useState(false);
+  const hasValidatedRef = useRef(false);
 
   useEffect(() => {
-    if (isRestoring) {
+    if (isRestoring || isHydrating) {
       return;
     }
 
@@ -21,15 +27,47 @@ export default function Index() {
         return;
       }
 
-      if (event?.id) {
-        router.replace("/(tabs)/scan");
-      } else {
-        router.replace("/(tabs)/logout");
+      if (!user?.id || !event?.id) {
+        void resetSession();
+        return;
       }
-    }, 1400);
+
+      if (hasValidatedRef.current) {
+        return;
+      }
+      hasValidatedRef.current = true;
+
+      void (async () => {
+        setIsValidating(true);
+        try {
+          const { response, unauthorized } = await request("/auth/validate", {
+            method: "POST",
+          });
+
+          if (!response || unauthorized || response.status === 401) {
+            return;
+          }
+        } catch {
+          // Ignore validation errors to avoid blocking access.
+        } finally {
+          setIsValidating(false);
+        }
+
+        router.replace("/(tabs)/logout");
+      })();
+    }, 1000);
 
     return () => clearTimeout(timer);
-  }, [router, token, isRestoring, event?.id]);
+  }, [
+    router,
+    token,
+    user?.id,
+    isRestoring,
+    isHydrating,
+    event?.id,
+    request,
+    resetSession,
+  ]);
 
   return (
     <View style={styles.container}>
@@ -47,7 +85,9 @@ export default function Index() {
         <Text style={styles.title}>Check In</Text>
         <Text style={styles.subtitle}>MUPY</Text>
       </View>
-      <Text style={styles.footer}>Loading...</Text>
+      <Text style={styles.footer}>
+        {isValidating ? "A validar sessão..." : "A iniciar..."}
+      </Text>
     </View>
   );
 }

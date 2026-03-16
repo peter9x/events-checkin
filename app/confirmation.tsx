@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Image,
   Pressable,
@@ -7,41 +7,46 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuth } from "../src/auth/AuthContext";
 import { RecentCheckin, useCheckin } from "../src/checkin/CheckinContext";
 import { useApp } from "../src/context/AppContext";
-import { Background } from "@react-navigation/elements";
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+import { useApi } from "../src/api/useApi";
+import { useSessionReset } from "../src/auth/useSessionReset";
 
 export default function ConfirmationPage() {
   const router = useRouter();
-  const { token, clearSession } = useAuth();
-  const { registration, setRegistration, addRecentCheckin, clearRecentCheckins } =
-    useCheckin();
+  const { token } = useAuth();
+  const { registration, setRegistration, addRecentCheckin } = useCheckin();
   const { event, applyStatsFromResponse } = useApp();
+  const { request } = useApi();
+  const resetSession = useSessionReset();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (token && !event?.id) {
-      router.replace("/(tabs)/logout");
+      void resetSession();
     }
-  }, [token, event?.id, router]);
+  }, [token, event?.id, resetSession]);
 
   if (!registration) {
-    return;
+    return null;
   }
 
   const handleConfirm = async () => {
-    if (!token || loading) {
+    if (!token) {
+      await resetSession();
+      return;
+    }
+    if (loading) {
       return;
     }
 
     if (!event?.id) {
-      router.replace("/(tabs)/logout");
+      await resetSession();
       return;
     }
 
@@ -49,28 +54,21 @@ export default function ConfirmationPage() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/checkin/confirm`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const { response, payload, unauthorized } = await request(
+        "/checkin/confirm",
+        {
+          method: "POST",
+          body: {
+            registration: registration.id,
+          },
         },
-        body: JSON.stringify({
-          registration: registration.id,
-          event_id: event.id,
-        }),
-      });
+      );
 
-      const payload = await response.json().catch(() => null);
-      applyStatsFromResponse(payload);
-
-      if (response.status === 403) {
-        await clearSession();
-        setRegistration(null);
-        clearRecentCheckins();
-        router.replace("/login");
+      if (!response || unauthorized) {
         return;
       }
+
+      applyStatsFromResponse(payload);
 
       if (!response.ok) {
         setError("Unable to confirm check-in.");
@@ -112,7 +110,12 @@ export default function ConfirmationPage() {
         backgroundColor: registration.allow_check_in ? "#5cb85c" : "#cd2923",
       }}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={{
+          ...styles.scrollContent,
+          paddingBottom: styles.scrollContent.paddingBottom + insets.bottom,
+        }}
+      >
         {registration.check_in ? (
           <View
             style={{
@@ -203,11 +206,20 @@ export default function ConfirmationPage() {
               })}
             </>
           )}
+
+          <Text style={styles.sectionTitle}>Equipa</Text>
+          <Text style={styles.sectionValue}>{registration.team.name}</Text>
+
         </View>
         {error && <Text style={styles.errorText}>{error}</Text>}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View
+        style={{
+          ...styles.footer,
+          paddingBottom: Math.max(insets.bottom, 12),
+        }}
+      >
         {!registration ||
         (registration.allow_check_in && !registration.check_in) ? (
           <Pressable
@@ -339,9 +351,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     padding: 0,
-    //backgroundColor: "rgba(240,240,240,0.98)",
-    //borderTopWidth: 1,
-    //borderTopColor: "#E2E2E2",
   },
   button: {
     backgroundColor: "#376e37",

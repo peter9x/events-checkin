@@ -54,7 +54,7 @@ const normalizeExpiry = (value: unknown) => {
 export default function QrLoginScreen() {
   const router = useRouter();
   const { setQrSession } = useAuth();
-  const { event, applyStatsFromResponse, setProfileFromUser } = useApp();
+  const { applyStatsFromResponse, setProfileFromUser, setEvent } = useApp();
   const [permission, requestPermission] = useCameraPermissions();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +96,6 @@ export default function QrLoginScreen() {
 
       try {
         const deviceInfo = await getDeviceInfoPayload();
-        console.log(deviceInfo);
         const response = await fetch(`${API_BASE_URL}/auth/qr`, {
           method: "POST",
           headers: {
@@ -127,6 +126,16 @@ export default function QrLoginScreen() {
           payload?.name ??
           payload?.user_name ??
           payload?.data?.nome;
+        const eventId =
+          payload?.event_id ??
+          payload?.eventId ??
+          payload?.data?.event_id ??
+          payload?.event?.id ??
+          payload?.data?.event?.id;
+        const eventName =
+          payload?.event_name ??
+          payload?.event?.name ??
+          payload?.data?.event?.name;
         const token =
           payload?.token ??
           payload?.access_token ??
@@ -143,7 +152,7 @@ export default function QrLoginScreen() {
           payload?.data?.validade;
         const expiresAt = normalizeExpiry(expiresValue);
 
-        if (!userId || !userName || !token) {
+        if (!userId || !userName || !token || !eventId) {
           setError("Resposta inválida do servidor.");
           return false;
         }
@@ -151,12 +160,12 @@ export default function QrLoginScreen() {
         const user = { id: userId, name: String(userName) };
         await setQrSession(user, String(token), expiresAt);
         setProfileFromUser(user as Record<string, unknown>);
+        setEvent({
+          id: eventId,
+          name: String(eventName ?? eventId),
+        });
 
-        if (event?.id) {
-          router.replace("/(tabs)/scan");
-        } else {
-          router.replace("/(tabs)/logout");
-        }
+        router.replace("/(tabs)/logout");
         return true;
       } catch {
         setError("Erro de rede. Tente novamente.");
@@ -166,13 +175,7 @@ export default function QrLoginScreen() {
         isProcessingRef.current = false;
       }
     },
-    [
-      applyStatsFromResponse,
-      event?.id,
-      router,
-      setProfileFromUser,
-      setQrSession,
-    ],
+    [applyStatsFromResponse, router, setEvent, setProfileFromUser, setQrSession],
   );
 
   const handleScan = useCallback(
@@ -289,8 +292,7 @@ const styles = StyleSheet.create({
   cameraCard: {
     marginTop: 24,
     backgroundColor: "#FFFFFF",
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: 5,
     shadowColor: "#292929",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.12,
@@ -298,7 +300,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   cameraWrap: {
-    borderRadius: 20,
+    borderRadius: 5,
     overflow: "hidden",
     backgroundColor: "#292929",
     minHeight: 300,
@@ -312,10 +314,10 @@ const styles = StyleSheet.create({
     top: 20,
     left: 20,
     right: 20,
-    bottom: 24,
+    bottom: 20,
     borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.75)",
-    borderRadius: 18,
+    borderColor: "rgba(255,255,255,0.45)",
+    borderRadius: 5,
   },
   card: {
     backgroundColor: "#FFFFFF",

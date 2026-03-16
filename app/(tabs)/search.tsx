@@ -18,8 +18,8 @@ import {
   RegistrationResource,
   useCheckin,
 } from "../../src/checkin/CheckinContext";
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+import { useApi } from "../../src/api/useApi";
+import { useSessionReset } from "../../src/auth/useSessionReset";
 
 type SearchParam = "bib_number" | "identification_number" | "code";
 
@@ -33,17 +33,19 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const { token, clearSession } = useAuth();
+  const { token } = useAuth();
   const { event, applyStatsFromResponse } = useApp();
-  const { setRegistration, clearRecentCheckins } = useCheckin();
+  const { setRegistration } = useCheckin();
+  const { request } = useApi();
+  const resetSession = useSessionReset();
   const isFocused = useIsFocused();
   const tabBarHeight = useBottomTabBarHeight();
 
   useEffect(() => {
     if (isFocused && token && !event?.id) {
-      router.navigate("/(tabs)/logout");
+      void resetSession();
     }
-  }, [isFocused, token, event?.id, router]);
+  }, [isFocused, token, event?.id, resetSession]);
 
   useEffect(() => {
     setResults([]);
@@ -87,11 +89,11 @@ export default function SearchScreen() {
       return;
     }
     if (!token) {
-      setError("Sessao expirada. Inicie sessao novamente.");
+      await resetSession();
       return;
     }
     if (!event?.id) {
-      router.navigate("/(tabs)/logout");
+      await resetSession();
       return;
     }
 
@@ -118,29 +120,23 @@ export default function SearchScreen() {
     setResults([]);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/checkin/search/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const { response, payload, unauthorized } = await request(
+        "/checkin/search/",
+        {
+          method: "POST",
+          body: {
+            value: trimmedQuery,
+            parameter: searchParam,
+            event: event.id,
+          },
         },
-        body: JSON.stringify({
-          value: trimmedQuery,
-          parameter: searchParam,
-          event: event.id,
-        }),
-      });
+      );
 
-      const payload = await response.json().catch(() => null);
-      applyStatsFromResponse(payload);
-
-      if (response.status === 403) {
-        await clearSession();
-        setRegistration(null);
-        clearRecentCheckins();
-        router.replace("/login");
+      if (!response || unauthorized) {
         return;
       }
+
+      applyStatsFromResponse(payload);
 
       if (!response.ok) {
         const message =

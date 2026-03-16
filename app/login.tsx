@@ -1,96 +1,10 @@
-import { useState } from "react";
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "../src/auth/AuthContext";
-import { useApp } from "../src/context/AppContext";
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { setSession, rememberMe, setRememberMe } = useAuth();
-  const { event, applyStatsFromResponse, setProfileFromUser } = useApp();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  const handleLogin = async () => {
-    if (loading) {
-      return;
-    }
-
-    setError(null);
-    setSuccess(null);
-
-    if (!email.trim() || !password) {
-      setError("Por favor, preencher email e password");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-        }),
-      });
-
-      const payload = await response.json().catch(() => null);
-      applyStatsFromResponse(payload);
-
-      if (!response.ok) {
-        const message =
-          payload?.message ||
-          payload?.error ||
-          `Erro de autenticação. (${response.status})`;
-        setError(message);
-        return;
-      }
-
-      const token =
-        payload?.token || payload?.access_token || payload?.data?.token;
-      const user = payload?.user || payload?.data?.user;
-
-      if (!token || !user) {
-        setError("Erro de autenticação.");
-        return;
-      }
-
-      await setSession(user, token);
-      setProfileFromUser(user as Record<string, unknown>);
-      setSuccess("Autenticação com sucesso.");
-      if (event?.id) {
-        router.replace("/(tabs)/scan");
-      } else {
-        router.replace("/(tabs)/logout");
-      }
-    } catch (err) {
-      console.log(err);
-      setError("Erro de conexão.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -98,98 +12,20 @@ export default function LoginScreen() {
       <View style={styles.background}>
         <View style={styles.topGlow} />
       </View>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <View style={styles.header}>
-          <Text style={styles.title}>Login</Text>
-        </View>
 
-        <View style={styles.card}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="hello@mupy.io"
-            placeholderTextColor="#8A8A8A"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            style={styles.input}
-          />
+      <View style={styles.container}>
+        <Text style={styles.title}>Login</Text>
+        <Text style={styles.subtitle}>
+          Use o QR Code para iniciar sessão no posto.
+        </Text>
 
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.inputWrapper}>
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              placeholder="••••••••"
-              placeholderTextColor="#8A8A8A"
-              secureTextEntry={!showPassword}
-              style={styles.inputWithIcon}
-            />
-            <Pressable
-              onPress={() => setShowPassword((prev) => !prev)}
-              style={styles.iconButton}
-            >
-              <Ionicons
-                name={showPassword ? "eye-off-outline" : "eye-outline"}
-                size={20}
-                color="#5A5A5A"
-              />
-            </Pressable>
-          </View>
-
-          <Pressable
-            onPress={() => setRememberMe(!rememberMe)}
-            style={styles.rememberRow}
-          >
-            <View
-              style={[styles.checkbox, rememberMe && styles.checkboxChecked]}
-            >
-              {rememberMe && <View style={styles.checkboxDot} />}
-            </View>
-            <Text style={styles.rememberText}>Manter sessão iniciada</Text>
-          </Pressable>
-
-          {(error || success) && (
-            <Text
-              style={[
-                styles.feedback,
-                success ? styles.successText : styles.errorText,
-              ]}
-            >
-              {success ?? error}
-            </Text>
-          )}
-
-          <Pressable
-            onPress={handleLogin}
-            disabled={loading}
-            style={({ pressed }) => [
-              styles.button,
-              (pressed || loading) && styles.buttonPressed,
-            ]}
-          >
-            {loading ? (
-              <ActivityIndicator color="#F8FAFC" />
-            ) : (
-              <Text style={styles.buttonText}>Entrar</Text>
-            )}
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.push("/qr-login")}
-            style={({ pressed }) => [
-              styles.qrButton,
-              pressed && styles.qrButtonPressed,
-            ]}
-          >
-            <Text style={styles.qrButtonText}>Entrar com QR Code</Text>
-          </Pressable>
-        </View>
-      </KeyboardAvoidingView>
+        <Pressable
+          onPress={() => router.push("/qr-login")}
+          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+        >
+          <Text style={styles.buttonText}>Entrar com QR Code</Text>
+        </Pressable>
+      </View>
 
       <Text style={styles.copyright}>MUPY</Text>
     </SafeAreaView>
@@ -217,10 +53,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingTop: 48,
+    alignItems: "center",
   },
-  header: {
-    marginBottom: 24,
+  title: {
+    fontSize: 28,
+    fontWeight: "700",
+    textAlign: "center",
+    color: "#292929",
+  },
+  subtitle: {
+    marginTop: 12,
+    fontSize: 15,
+    color: "#5A5A5A",
+    lineHeight: 22,
+    textAlign: "center",
+  },
+  button: {
+    marginTop: 32,
+    backgroundColor: "#A5BF13",
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    alignItems: "center",
+  },
+  buttonPressed: {
+    opacity: 0.85,
+  },
+  buttonText: {
+    color: "#292929",
+    fontSize: 16,
+    fontWeight: "600",
   },
   copyright: {
     fontSize: 13,
@@ -234,146 +97,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
     right: 0,
     left: 0,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    textAlign: "center",
-    color: "#292929",
-  },
-  subtitle: {
-    marginTop: 8,
-    fontSize: 15,
-    color: "#5A5A5A",
-    lineHeight: 22,
-  },
-  card: {
-    flex: 1,
-    //backgroundColor: "#FFFFFF",
-    //borderRadius: 10,
-    //padding: 16,
-    //borderWidth: 1,
-    //borderColor: "#E2E2E2",
-    //shadowColor: "#292929",
-    //shadowOffset: { width: 0, height: 10 },
-    //shadowOpacity: 0.12,
-    //shadowRadius: 16,
-    //elevation: 6,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#292929",
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#D7D7D7",
-    borderRadius: 5,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: "#292929",
-    marginBottom: 16,
-    backgroundColor: "#F7F7F7",
-  },
-  inputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#D7D7D7",
-    borderRadius: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginBottom: 16,
-    backgroundColor: "#F7F7F7",
-  },
-  inputWithIcon: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    fontSize: 15,
-    color: "#292929",
-  },
-  iconButton: {
-    padding: 6,
-  },
-  feedback: {
-    marginBottom: 12,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  errorText: {
-    color: "#DC2626",
-  },
-  successText: {
-    color: "#16A34A",
-  },
-  button: {
-    backgroundColor: "#A5BF13",
-    borderRadius: 5,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  buttonPressed: {
-    opacity: 0.85,
-  },
-  buttonText: {
-    color: "#292929",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  qrButton: {
-    marginTop: 12,
-    borderRadius: 5,
-    paddingVertical: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#A5BF13",
-    backgroundColor: "#FFFFFF",
-  },
-  qrButtonPressed: {
-    opacity: 0.75,
-  },
-  qrButtonText: {
-    color: "#292929",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  rememberRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: "#C9C9C9",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-    backgroundColor: "#FFFFFF",
-  },
-  checkboxChecked: {
-    borderColor: "#A5BF13",
-    backgroundColor: "rgba(165,191,19,0.18)",
-  },
-  checkboxDot: {
-    width: 11,
-    height: 11,
-    borderRadius: 4,
-    backgroundColor: "#A5BF13",
-  },
-  rememberText: {
-    fontSize: 13,
-    color: "#5A5A5A",
-    fontWeight: "500",
-  },
-  footer: {
-    marginTop: 18,
-    fontSize: 12,
-    color: "#64748B",
   },
 });

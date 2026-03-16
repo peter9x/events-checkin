@@ -6,6 +6,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import * as SecureStore from "expo-secure-store";
 import { useAuth } from "../auth/AuthContext";
 
 export type AppProfile = {
@@ -24,6 +25,7 @@ type AppContextValue = {
   profile: AppProfile | null;
   event: AppEvent | null;
   stats: AppStats;
+  isHydrating: boolean;
   setProfileFromUser: (user: Record<string, unknown> | null) => void;
   setEvent: (event: AppEvent | null) => void;
   setStats: (stats: AppStats) => void;
@@ -32,6 +34,7 @@ type AppContextValue = {
 };
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
+const EVENT_STORAGE_KEY = "checkin.event";
 
 function normalizeProfile(
   user: Record<string, unknown> | null,
@@ -60,8 +63,17 @@ function normalizeProfile(
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const { token, user } = useAuth();
   const [profile, setProfile] = useState<AppProfile | null>(null);
-  const [event, setEvent] = useState<AppEvent | null>(null);
+  const [event, setEventState] = useState<AppEvent | null>(null);
   const [stats, setStats] = useState<AppStats>(null);
+  const [isHydrating, setIsHydrating] = useState(true);
+
+  const canUseSecureStore = useCallback(async () => {
+    try {
+      return await SecureStore.isAvailableAsync();
+    } catch {
+      return false;
+    }
+  }, []);
 
   const setProfileFromUser = useCallback(
     (nextUser: Record<string, unknown> | null) => {
@@ -70,11 +82,71 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  const persistEvent = useCallback(
+    async (nextEvent: AppEvent | null) => {
+      try {
+        const available = await canUseSecureStore();
+        if (!available) {
+          return;
+        }
+        if (!nextEvent) {
+          await SecureStore.deleteItemAsync(EVENT_STORAGE_KEY);
+        } else {
+          await SecureStore.setItemAsync(
+            EVENT_STORAGE_KEY,
+            JSON.stringify(nextEvent),
+          );
+        }
+      } catch {
+        // Ignore persistence errors.
+      }
+    },
+    [canUseSecureStore],
+  );
+
+  const setEvent = useCallback(
+    (nextEvent: AppEvent | null) => {
+      setEventState(nextEvent);
+      void persistEvent(nextEvent);
+    },
+    [persistEvent],
+  );
+
   const clearAppState = useCallback(() => {
     setProfile(null);
     setEvent(null);
     setStats(null);
-  }, []);
+  }, [setEvent]);
+
+  useEffect(() => {
+    let isActive = true;
+    const restoreEvent = async () => {
+      try {
+        const available = await canUseSecureStore();
+        if (!available) {
+          return;
+        }
+        const storedEvent = await SecureStore.getItemAsync(EVENT_STORAGE_KEY);
+        if (storedEvent && isActive) {
+          const parsed = JSON.parse(storedEvent) as AppEvent;
+          if (parsed?.id !== undefined && parsed?.id !== null) {
+            setEventState(parsed);
+          }
+        }
+      } catch {
+        // Ignore restore failures.
+      } finally {
+        if (isActive) {
+          setIsHydrating(false);
+        }
+      }
+    };
+
+    restoreEvent();
+    return () => {
+      isActive = false;
+    };
+  }, [canUseSecureStore]);
 
   const applyStatsFromResponse = useCallback((payload: unknown) => {
     if (!payload || typeof payload !== "object") {
@@ -101,6 +173,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       profile,
       event,
       stats,
+      isHydrating,
       setProfileFromUser,
       setEvent,
       setStats,
@@ -111,9 +184,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       profile,
       event,
       stats,
+      isHydrating,
       clearAppState,
       applyStatsFromResponse,
       setProfileFromUser,
+      setEvent,
     ],
   );
 
