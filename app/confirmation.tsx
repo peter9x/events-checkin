@@ -10,7 +10,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuth } from "../src/auth/AuthContext";
-import { RecentCheckin, useCheckin } from "../src/checkin/CheckinContext";
+import { useCheckin } from "../src/checkin/CheckinContext";
+import { buildRecentCheckin } from "../src/checkin/checkinHelpers";
 import { useApp } from "../src/context/AppContext";
 import { useApi } from "../src/api/useApi";
 import { useSessionReset } from "../src/auth/useSessionReset";
@@ -55,7 +56,7 @@ export default function ConfirmationPage() {
 
     try {
       const { response, payload, unauthorized } = await request(
-        "/checkin/confirm",
+        "checkinConfirm",
         {
           method: "POST",
           body: {
@@ -75,28 +76,11 @@ export default function ConfirmationPage() {
         return;
       }
 
-      const now = Date.now();
-      const shirtExtra = registration.extras?.find(
-        (extra) => extra.type === "shirt" && extra.value
-      );
-      const athleteName =
-        [registration.athlete.firstname, registration.athlete.lastname]
-          .filter(Boolean)
-          .join(" ")
-          .trim() || registration.athlete.name;
-      const recentCheckin: RecentCheckin = {
-        id: `${registration.id}-${now}`,
-        athleteName: athleteName || "—",
-        bibNumber: registration.bib_number ?? null,
-        shirt: shirtExtra?.value ?? null,
-        box: registration.box?.name ?? null,
-        createdAt: now,
-      };
-
-      addRecentCheckin(recentCheckin);
+      addRecentCheckin(buildRecentCheckin(registration));
       setRegistration(null);
       router.replace("/(tabs)/scan");
     } catch (err) {
+      console.error(err);
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);

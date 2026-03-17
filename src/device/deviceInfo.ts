@@ -12,8 +12,17 @@ export type DeviceInfoSnapshot = {
   wifiName: string | null;
 };
 
+export type DeviceInfoPayload = {
+  device_id: string;
+  ip_address: string | null;
+  mac_address: string | null;
+  wifi_ssid: string | null;
+};
+
 const createFallbackId = () =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+let deviceInfoSnapshotPromise: Promise<DeviceInfoSnapshot> | null = null;
 
 export async function getDeviceId(): Promise<string> {
   try {
@@ -87,8 +96,19 @@ export async function getDeviceInfoSnapshot(): Promise<DeviceInfoSnapshot> {
   };
 }
 
-export async function getDeviceInfoPayload() {
-  const snapshot = await getDeviceInfoSnapshot();
+export async function getCachedDeviceInfoSnapshot(): Promise<DeviceInfoSnapshot> {
+  if (!deviceInfoSnapshotPromise) {
+    deviceInfoSnapshotPromise = getDeviceInfoSnapshot().catch((error) => {
+      deviceInfoSnapshotPromise = null;
+      throw error;
+    });
+  }
+
+  return deviceInfoSnapshotPromise;
+}
+
+export async function getDeviceInfoPayload(): Promise<DeviceInfoPayload> {
+  const snapshot = await getCachedDeviceInfoSnapshot();
   return {
     device_id: snapshot.deviceId,
     ip_address: snapshot.ipAddress,

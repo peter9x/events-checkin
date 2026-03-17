@@ -18,10 +18,13 @@ import {
   RegistrationResource,
   useCheckin,
 } from "../../src/checkin/CheckinContext";
+import {
+  getRegistrationAthleteName,
+  resolveSearchCriteria,
+  SearchParam,
+} from "../../src/checkin/checkinHelpers";
 import { useApi } from "../../src/api/useApi";
 import { useSessionReset } from "../../src/auth/useSessionReset";
-
-type SearchParam = "bib_number" | "identification_number" | "code";
 
 export default function SearchScreen() {
   const [bibQuery, setBibQuery] = useState("");
@@ -97,16 +100,14 @@ export default function SearchScreen() {
       return;
     }
 
-    const fields = [
-      { key: "bib_number", value: bibQuery },
-      { key: "identification_number", value: identificationQuery },
-      { key: "code", value: codeQuery },
-    ] as const;
-    const selectedField =
-      fields.find((item) => item.value.trim()) ??
-      fields.find((item) => item.key === activeParam);
-    const trimmedQuery = selectedField?.value.trim() ?? "";
-    const searchParam = selectedField?.key ?? activeParam;
+    const { searchParam, trimmedQuery } = resolveSearchCriteria(
+      {
+        bib_number: bibQuery,
+        identification_number: identificationQuery,
+        code: codeQuery,
+      },
+      activeParam,
+    );
     if (!trimmedQuery) {
       setError("Introduza um valor para pesquisar.");
       setResults([]);
@@ -120,9 +121,10 @@ export default function SearchScreen() {
     setResults([]);
 
     try {
-      const { response, payload, unauthorized } = await request(
-        "/checkin/search/",
+      const { response, data, payload, unauthorized } = await request(
+        "checkinSearch",
         {
+          attr: "registrations",
           method: "POST",
           body: {
             value: trimmedQuery,
@@ -148,12 +150,11 @@ export default function SearchScreen() {
         return;
       }
 
-      const data =
-        payload?.registrations ?? payload?.data ?? payload?.results ?? payload;
       const list = Array.isArray(data) ? data : [];
       setResults(list as RegistrationResource[]);
       setSearched(true);
     } catch (err) {
+      console.error(err);
       setError("Erro de rede. Tente novamente.");
       setSearched(true);
     } finally {
@@ -242,12 +243,7 @@ export default function SearchScreen() {
           ) : results.length > 0 ? (
             results.map((result, index) => {
               const athlete = result.athlete;
-              const name =
-                athlete?.name ||
-                [athlete?.firstname, athlete?.lastname]
-                  .filter(Boolean)
-                  .join(" ") ||
-                "Atleta";
+              const name = getRegistrationAthleteName(result);
               const bibNumber = result.bib_number ?? "—";
               const identification = athlete?.identification_number ?? "—";
 

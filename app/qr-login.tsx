@@ -15,46 +15,23 @@ import {
 import { useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import { useAuth } from "../src/auth/AuthContext";
+import { normalizeExpiry, parseLoginQrValue } from "../src/auth/qrLoginHelpers";
 import { useApp } from "../src/context/AppContext";
-import { getDeviceInfoPayload } from "../src/device/deviceInfo";
+import { useApi } from "../src/api/useApi";
+import { LoginResponsePayload } from "@/src/api/responseTypes";
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const SCAN_COOLDOWN_MS = 1500;
-
-const normalizeExpiry = (value: unknown) => {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  if (typeof value === "number" && !Number.isNaN(value)) {
-    if (value > 1e12) {
-      return value;
-    }
-    return Date.now() + value * 1000;
-  }
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return null;
-    }
-    const asNumber = Number(trimmed);
-    if (!Number.isNaN(asNumber)) {
-      if (asNumber > 1e12) {
-        return asNumber;
-      }
-      return Date.now() + asNumber * 1000;
-    }
-    const parsed = Date.parse(trimmed);
-    if (!Number.isNaN(parsed)) {
-      return parsed;
-    }
-  }
-  return null;
-};
 
 export default function QrLoginScreen() {
   const router = useRouter();
   const { setQrSession } = useAuth();
-  const { applyStatsFromResponse, setProfileFromUser, setEvent } = useApp();
+  const {
+    applyStatsFromResponse,
+    setProfileFromUser,
+    setEvent,
+    resetApiState,
+  } = useApp();
+  const { requestPublic } = useApi();
   const [permission, requestPermission] = useCameraPermissions();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,21 +70,29 @@ export default function QrLoginScreen() {
       isProcessingRef.current = true;
       setLoading(true);
       setError(null);
-
       try {
-        const deviceInfo = await getDeviceInfoPayload();
-        const response = await fetch(`${API_BASE_URL}/auth/qr`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            qr_code: qrValue,
-            ...deviceInfo,
-          }),
-        });
+        resetApiState();
+        const parsedQr = parseLoginQrValue(qrValue);
 
-        const payload = await response.json().catch(() => null);
+        const { response, data, payload } = await requestPublic(
+          "authQr",
+          {
+            attr: "data",
+            method: "POST",
+            body: {
+              qr_code: parsedQr.qrCode,
+            },
+            includeAuth: false,
+            includeContext: false,
+          },
+          parsedQr.apiBaseUrl,
+        );
+
+        if (!response) {
+          setError("Erro de rede. Tente novamente...");
+          return false;
+        }
+
         applyStatsFromResponse(payload);
 
         if (!response.ok) {
@@ -119,37 +104,28 @@ export default function QrLoginScreen() {
           return false;
         }
 
-        const userId =
-          payload?.user_id ?? payload?.userId ?? payload?.data?.user_id;
-        const userName =
-          payload?.nome ??
-          payload?.name ??
-          payload?.user_name ??
-          payload?.data?.nome;
-        const eventId =
-          payload?.event_id ??
-          payload?.eventId ??
-          payload?.data?.event_id ??
-          payload?.event?.id ??
-          payload?.data?.event?.id;
-        const eventName =
-          payload?.event_name ??
-          payload?.event?.name ??
-          payload?.data?.event?.name;
-        const token =
-          payload?.token ??
-          payload?.access_token ??
-          payload?.session_token ??
-          payload?.auth_token ??
-          payload?.data?.token ??
-          payload?.data?.session_token ??
-          payload?.data?.auth_token;
-        const expiresValue =
-          payload?.validade ??
-          payload?.validade_sessao ??
-          payload?.session_validity ??
-          payload?.expires_in ??
-          payload?.data?.validade;
+        const loginSource =
+          data && typeof data === "object" && !Array.isArray(data)
+            ? data
+            : payload && typeof payload === "object" && !Array.isArray(payload)
+              ? payload
+              : null;
+
+        if (!loginSource) {
+          setError("Resposta inválida do servidor.");
+          return false;
+        }
+
+        const loginPayload = loginSource as LoginResponsePayload;
+
+        console.log(loginPayload);
+
+        const userId = loginPayload.user_id;
+        const userName = loginPayload.user_name;
+        const eventId = loginPayload.event.id;
+        const eventName = loginPayload.event.name;
+        const token = loginPayload.token;
+        const expiresValue = loginPayload.expires_in;
         const expiresAt = normalizeExpiry(expiresValue);
 
         if (!userId || !userName || !token || !eventId) {
@@ -158,7 +134,7 @@ export default function QrLoginScreen() {
         }
 
         const user = { id: userId, name: String(userName) };
-        await setQrSession(user, String(token), expiresAt);
+        await setQrSession(user, String(token), expiresAt, parsedQr.apiBaseUrl);
         setProfileFromUser(user as Record<string, unknown>);
         setEvent({
           id: eventId,
@@ -167,15 +143,30 @@ export default function QrLoginScreen() {
 
         router.replace("/(tabs)/logout");
         return true;
-      } catch {
-        setError("Erro de rede. Tente novamente.");
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message.toLowerCase().startsWith("qr code inválido")
+        ) {
+          setError(error.message);
+        } else {
+          setError("Erro de rede. Tente novamente.");
+        }
         return false;
       } finally {
         setLoading(false);
         isProcessingRef.current = false;
       }
     },
-    [applyStatsFromResponse, router, setEvent, setProfileFromUser, setQrSession],
+    [
+      applyStatsFromResponse,
+      requestPublic,
+      resetApiState,
+      router,
+      setEvent,
+      setProfileFromUser,
+      setQrSession,
+    ],
   );
 
   const handleScan = useCallback(

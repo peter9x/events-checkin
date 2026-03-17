@@ -23,7 +23,7 @@ const DEFAULT_VISIBLE_CHECKINS = 6;
 export default function LogoutScreen() {
   const resetSession = useSessionReset();
   const { recentCheckins } = useCheckin();
-  const { profile, event } = useApp();
+  const { profile, event, apiMode, activeApiBaseUrl } = useApp();
   const [visibleCheckins, setVisibleCheckins] = useState(
     DEFAULT_VISIBLE_CHECKINS,
   );
@@ -85,17 +85,23 @@ export default function LogoutScreen() {
         scrollIndicatorInsets={{ right: 0 }}
       >
         <View style={styles.card}>
-          <Text style={styles.title}>A minha conta</Text>
+          <Text style={styles.sectionLabel}>Posto</Text>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Nome</Text>
             <Text style={styles.infoValue}>
               {profile?.name || profile?.email || "Team Member"}
             </Text>
           </View>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Posto</Text>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Modo API</Text>
+            <Text style={styles.infoValue}>
+              {apiMode === "local" ? "Local" : "Online"}
+            </Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Base URL</Text>
+            <Text style={styles.infoValue}>{activeApiBaseUrl || "—"}</Text>
+          </View>
           {deviceInfoError ? (
             <Text style={styles.infoError}>{deviceInfoError}</Text>
           ) : !deviceInfo ? (
@@ -175,7 +181,10 @@ export default function LogoutScreen() {
               style={styles.loadMoreButton}
               onPress={() =>
                 setVisibleCheckins((current) =>
-                  Math.min(current + DEFAULT_VISIBLE_CHECKINS, recentCheckins.length),
+                  Math.min(
+                    current + DEFAULT_VISIBLE_CHECKINS,
+                    recentCheckins.length,
+                  ),
                 )
               }
             >
@@ -223,7 +232,7 @@ const styles = StyleSheet.create({
     color: "#292929",
   },
   infoRow: {
-    marginTop: 14,
+    marginTop: 10,
   },
   infoLabel: {
     fontSize: 12,
@@ -233,7 +242,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   infoValue: {
-    marginTop: 6,
+    marginTop: 4,
     fontSize: 15,
     color: "#292929",
   },

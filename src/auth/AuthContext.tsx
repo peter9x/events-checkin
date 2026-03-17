@@ -7,6 +7,7 @@ import React, {
   useCallback,
 } from "react";
 import * as SecureStore from "expo-secure-store";
+import { useApp } from "../context/AppContext";
 
 type User = {
   id?: string | number;
@@ -25,6 +26,7 @@ type AuthContextValue = AuthState & {
     user: User,
     token: string,
     expiresAt: number | null,
+    apiBaseUrl: string | null,
   ) => Promise<void>;
   clearSession: () => Promise<void>;
   isRestoring: boolean;
@@ -38,6 +40,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isRestoring, setIsRestoring] = useState(true);
   const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
+  const { setProfileFromUser, setSessionApiBaseUrl, resetApiState, clearAppState } =
+    useApp();
 
   const canUseSecureStore = useCallback(async () => {
     try {
@@ -69,10 +73,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await SecureStore.deleteItemAsync("checkin.user");
       await SecureStore.deleteItemAsync("checkin.sessionType");
       await SecureStore.deleteItemAsync("checkin.sessionExpiresAt");
+      await SecureStore.deleteItemAsync("checkin.apiBaseUrl");
     } catch {
       // Ignore persistence errors to avoid blocking logout.
+    } finally {
+      setSessionApiBaseUrl(null);
     }
-  }, [canUseSecureStore]);
+  }, [canUseSecureStore, setSessionApiBaseUrl]);
 
   useEffect(() => {
     const restore = async () => {
@@ -85,6 +92,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const storedUser = await SecureStore.getItemAsync("checkin.user");
         const storedSessionType =
           await SecureStore.getItemAsync("checkin.sessionType");
+        const storedApiBaseUrl = await SecureStore.getItemAsync(
+          "checkin.apiBaseUrl",
+        );
         const storedSessionExpiresAt = parseStoredNumber(
           await SecureStore.getItemAsync("checkin.sessionExpiresAt"),
         );
@@ -94,15 +104,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (storedSessionExpiresAt && storedSessionExpiresAt <= Date.now()) {
           await clearStoredSession();
+          clearAppState();
           return;
         }
 
         if (shouldRestore && storedToken && storedUser) {
+          const parsedUser = JSON.parse(storedUser) as User;
           setToken(storedToken);
-          setUser(JSON.parse(storedUser));
+          setUser(parsedUser);
+          const nextApiBaseUrl = storedApiBaseUrl?.trim() || null;
+          setSessionApiBaseUrl(nextApiBaseUrl);
+          setProfileFromUser(parsedUser as Record<string, unknown>);
           setSessionExpiresAt(storedSessionExpiresAt ?? null);
         } else if (hasStoredSession) {
           await clearStoredSession();
+        } else {
+          resetApiState();
         }
       } catch {
         // Ignore restore failures to keep auth usable.
@@ -112,7 +129,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     restore();
-  }, [canUseSecureStore, clearStoredSession]);
+  }, [
+    canUseSecureStore,
+    clearAppState,
+    clearStoredSession,
+    resetApiState,
+    setProfileFromUser,
+    setSessionApiBaseUrl,
+  ]);
 
   useEffect(() => {
     if (!sessionExpiresAt) {
@@ -124,17 +148,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       void clearStoredSession();
       setUser(null);
       setToken(null);
+      setProfileFromUser(null);
       setSessionExpiresAt(null);
+      clearAppState();
       return;
     }
     const timer = setTimeout(() => {
       void clearStoredSession();
       setUser(null);
       setToken(null);
+      setProfileFromUser(null);
       setSessionExpiresAt(null);
+      clearAppState();
     }, remaining);
     return () => clearTimeout(timer);
-  }, [sessionExpiresAt, clearStoredSession]);
+  }, [clearAppState, sessionExpiresAt, clearStoredSession, setProfileFromUser]);
 
   const value = useMemo(
     () => ({
@@ -146,9 +174,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         nextUser: User,
         nextToken: string,
         expiresAt: number | null,
+        nextApiBaseUrl: string | null,
       ) => {
         setUser(nextUser);
         setToken(nextToken);
+        setSessionApiBaseUrl(nextApiBaseUrl);
+        setProfileFromUser(nextUser as Record<string, unknown>);
         setSessionExpiresAt(expiresAt);
         try {
           const available = await canUseSecureStore();
@@ -158,6 +189,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await SecureStore.setItemAsync("checkin.authToken", nextToken);
           await SecureStore.setItemAsync("checkin.user", JSON.stringify(nextUser));
           await SecureStore.setItemAsync("checkin.sessionType", "qr");
+          if (nextApiBaseUrl) {
+            await SecureStore.setItemAsync("checkin.apiBaseUrl", nextApiBaseUrl);
+          } else {
+            await SecureStore.deleteItemAsync("checkin.apiBaseUrl");
+          }
           if (expiresAt) {
             await SecureStore.setItemAsync(
               "checkin.sessionExpiresAt",
@@ -173,15 +209,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearSession: async () => {
         setUser(null);
         setToken(null);
+        setProfileFromUser(null);
         setSessionExpiresAt(null);
         try {
           await clearStoredSession();
         } catch {
           // Ignore persistence errors to avoid blocking logout.
         }
+        clearAppState();
       },
     }),
-    [token, user, isRestoring, sessionExpiresAt, canUseSecureStore, clearStoredSession]
+    [
+      token,
+      user,
+      isRestoring,
+      sessionExpiresAt,
+      canUseSecureStore,
+      clearStoredSession,
+      clearAppState,
+      setProfileFromUser,
+      setSessionApiBaseUrl,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

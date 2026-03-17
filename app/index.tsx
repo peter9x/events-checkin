@@ -40,7 +40,7 @@ export default function Index() {
       void (async () => {
         setIsValidating(true);
         try {
-          const { response, unauthorized } = await request("/auth/validate", {
+          const { response, unauthorized } = await request("authValidate", {
             method: "POST",
           });
 

@@ -79,9 +79,10 @@ export default function ScanScreen() {
       setError(null);
 
       try {
-        const { response, payload, unauthorized } = await request(
-          "/checkin/validation",
+        const { response, data, payload, unauthorized } = await request(
+          "checkinValidation",
           {
+            attr: "data",
             method: "GET",
             query: {
               event: event.id,
@@ -106,19 +107,25 @@ export default function ScanScreen() {
           return false;
         }
 
-        const data = payload?.data ?? payload;
-
-        if (!data) {
+        if (!data || typeof data !== "object") {
           setError("Inscrição inválida.");
           return false;
         }
 
-        setRegistration(data.registration ?? data);
+        const registrationPayload = data as {
+          registration?: typeof data;
+        };
+        setRegistration(
+          (registrationPayload.registration ?? data) as Parameters<
+            typeof setRegistration
+          >[0],
+        );
         if (isFocused) {
           router.push("/confirmation");
         }
         return true;
       } catch (err) {
+        console.error(err);
         setError("Erro de rede. Tente novamente.");
         return false;
       } finally {

@@ -7,7 +7,17 @@ import React, {
   useState,
 } from "react";
 import * as SecureStore from "expo-secure-store";
-import { useAuth } from "../auth/AuthContext";
+import {
+  ApiEnvironmentState,
+  ApiMode,
+  getApiBaseUrlCandidates,
+  getApiEnvironmentSnapshot,
+  getInitialApiEnvironmentState,
+  markApiBaseUrlReachable,
+  markApiBaseUrlUnreachable,
+  normalizeApiBaseUrl,
+  resetApiEnvironment,
+} from "../api/apiEndpoints";
 
 export type AppProfile = {
   name: string;
@@ -25,12 +35,22 @@ type AppContextValue = {
   profile: AppProfile | null;
   event: AppEvent | null;
   stats: AppStats;
+  apiMode: ApiMode;
+  activeApiBaseUrl?: string;
+  sessionApiBaseUrl?: string;
+  onlineApiBaseUrl?: string;
+  localApiBaseUrl?: string;
   isHydrating: boolean;
   setProfileFromUser: (user: Record<string, unknown> | null) => void;
   setEvent: (event: AppEvent | null) => void;
   setStats: (stats: AppStats) => void;
   clearAppState: () => void;
   applyStatsFromResponse: (payload: unknown) => void;
+  setSessionApiBaseUrl: (baseUrl: string | null | undefined) => void;
+  resetApiState: (baseUrl?: string | null) => void;
+  getApiBaseUrls: (preferredBaseUrl?: string | null) => string[];
+  markApiReachable: (baseUrl: string) => void;
+  markApiUnreachable: (baseUrl: string) => void;
 };
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -61,11 +81,13 @@ function normalizeProfile(
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const { token, user } = useAuth();
   const [profile, setProfile] = useState<AppProfile | null>(null);
   const [event, setEventState] = useState<AppEvent | null>(null);
   const [stats, setStats] = useState<AppStats>(null);
   const [isHydrating, setIsHydrating] = useState(true);
+  const [apiState, setApiState] = useState<ApiEnvironmentState>(() =>
+    getInitialApiEnvironmentState(),
+  );
 
   const canUseSecureStore = useCallback(async () => {
     try {
@@ -116,6 +138,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setProfile(null);
     setEvent(null);
     setStats(null);
+    setApiState(getInitialApiEnvironmentState());
   }, [setEvent]);
 
   useEffect(() => {
@@ -158,37 +181,76 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  useEffect(() => {
-    if (!token) {
-      clearAppState();
-    }
-  }, [token, clearAppState]);
+  const setSessionApiBaseUrl = useCallback((baseUrl: string | null | undefined) => {
+    const normalizedBaseUrl = normalizeApiBaseUrl(baseUrl);
+    setApiState((currentState) =>
+      resetApiEnvironment(currentState, normalizedBaseUrl),
+    );
+  }, []);
 
-  useEffect(() => {
-    setProfileFromUser(user as Record<string, unknown> | null);
-  }, [user, setProfileFromUser]);
+  const resetApiState = useCallback((baseUrl?: string | null) => {
+    setApiState((currentState) => resetApiEnvironment(currentState, baseUrl));
+  }, []);
+
+  const markApiReachable = useCallback((baseUrl: string) => {
+    setApiState((currentState) => markApiBaseUrlReachable(currentState, baseUrl));
+  }, []);
+
+  const markApiUnreachable = useCallback((baseUrl: string) => {
+    setApiState((currentState) =>
+      markApiBaseUrlUnreachable(currentState, baseUrl),
+    );
+  }, []);
+
+  const getApiBaseUrlsForRequest = useCallback(
+    (preferredBaseUrl?: string | null) =>
+      getApiBaseUrlCandidates(apiState, preferredBaseUrl),
+    [apiState],
+  );
+
+  const apiSnapshot = getApiEnvironmentSnapshot(apiState);
 
   const value = useMemo(
     () => ({
       profile,
       event,
       stats,
+      apiMode: apiSnapshot.mode,
+      activeApiBaseUrl: apiSnapshot.activeBaseUrl,
+      sessionApiBaseUrl: apiSnapshot.sessionBaseUrl,
+      onlineApiBaseUrl: apiSnapshot.onlineBaseUrl,
+      localApiBaseUrl: apiSnapshot.localBaseUrl,
       isHydrating,
       setProfileFromUser,
       setEvent,
       setStats,
       clearAppState,
       applyStatsFromResponse,
+      setSessionApiBaseUrl,
+      resetApiState,
+      getApiBaseUrls: getApiBaseUrlsForRequest,
+      markApiReachable,
+      markApiUnreachable,
     }),
     [
       profile,
       event,
       stats,
+      apiSnapshot.mode,
+      apiSnapshot.activeBaseUrl,
+      apiSnapshot.sessionBaseUrl,
+      apiSnapshot.onlineBaseUrl,
+      apiSnapshot.localBaseUrl,
       isHydrating,
       clearAppState,
       applyStatsFromResponse,
       setProfileFromUser,
       setEvent,
+      setSessionApiBaseUrl,
+      resetApiState,
+      getApiBaseUrlsForRequest,
+      markApiReachable,
+      markApiUnreachable,
     ],
   );
 
