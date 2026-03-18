@@ -1,10 +1,14 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 
 export default function LoginScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -27,7 +31,14 @@ export default function LoginScreen() {
         </Pressable>
       </View>
 
-      <Text style={styles.copyright}>MUPY</Text>
+      <Text
+        style={[
+          styles.copyright,
+          { bottom: Math.max(insets.bottom, 12) + 8 },
+        ]}
+      >
+        MUPY
+      </Text>
     </SafeAreaView>
   );
 }
@@ -93,7 +104,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 6,
     position: "absolute",
-    bottom: 20,
     textAlign: "center",
     right: 0,
     left: 0,

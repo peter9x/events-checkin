@@ -38,6 +38,22 @@ type ApiResult<T = any> = {
   baseUrl: string | undefined;
 };
 
+type ApiAttemptFailure = {
+  baseUrl: string;
+  requestUrl: string;
+  reason: string;
+};
+
+export class ApiNetworkError extends Error {
+  attempts: ApiAttemptFailure[];
+
+  constructor(message: string, attempts: ApiAttemptFailure[]) {
+    super(message);
+    this.name = "ApiNetworkError";
+    this.attempts = attempts;
+  }
+}
+
 const DEFAULT_API_TIMEOUT_MS = 5000;
 
 const resolveTimeoutMs = () => {
@@ -49,6 +65,15 @@ const resolveTimeoutMs = () => {
 };
 
 const API_TIMEOUT_MS = resolveTimeoutMs();
+
+const getErrorReason = (error: unknown) => {
+  if (error instanceof Error) {
+    const details = [error.name, error.message].filter(Boolean).join(": ").trim();
+    return details || "Unknown error";
+  }
+
+  return String(error);
+};
 
 const appendQuery = (
   url: string,
@@ -182,6 +207,7 @@ export async function apiRequest<T = any>(
   };
 
   let lastError: unknown;
+  const failedAttempts: ApiAttemptFailure[] = [];
 
   for (const baseUrl of baseUrlCandidates) {
     const urlWithPath = buildApiUrl(baseUrl, endpoint);
@@ -230,11 +256,25 @@ export async function apiRequest<T = any>(
         throw error;
       }
 
+      failedAttempts.push({
+        baseUrl,
+        requestUrl,
+        reason: getErrorReason(error),
+      });
       onBaseUrlUnreachable?.(baseUrl);
     }
   }
 
-  throw lastError instanceof Error
-    ? lastError
-    : new Error("API request failed due to unreachable endpoints.");
+  const lastReason = getErrorReason(lastError);
+  const attemptsSummary = failedAttempts
+    .map(
+      ({ requestUrl, reason }, index) =>
+        `${index + 1}. ${requestUrl} -> ${reason}`,
+    )
+    .join(" | ");
+
+  throw new ApiNetworkError(
+    `API request failed after ${failedAttempts.length} attempt(s). Timeout: ${API_TIMEOUT_MS}ms. Last error: ${lastReason}.${attemptsSummary ? ` Attempts: ${attemptsSummary}` : ""}`,
+    failedAttempts,
+  );
 }

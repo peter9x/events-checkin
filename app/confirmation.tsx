@@ -7,7 +7,10 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAuth } from "../src/auth/AuthContext";
 import { useCheckin } from "../src/checkin/CheckinContext";
@@ -26,6 +29,8 @@ export default function ConfirmationPage() {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const footerInset = Math.max(insets.bottom, 12);
+  const footerHeight = 82 + footerInset;
 
   useEffect(() => {
     if (token && !event?.id) {
@@ -36,6 +41,8 @@ export default function ConfirmationPage() {
   if (!registration) {
     return null;
   }
+
+  console.log(registration);
 
   const handleConfirm = async () => {
     if (!token) {
@@ -97,7 +104,7 @@ export default function ConfirmationPage() {
       <ScrollView
         contentContainerStyle={{
           ...styles.scrollContent,
-          paddingBottom: styles.scrollContent.paddingBottom + insets.bottom,
+          paddingBottom: footerHeight,
         }}
       >
         {registration.check_in ? (
@@ -157,21 +164,37 @@ export default function ConfirmationPage() {
           <Text style={styles.sectionTitle}>Percurso</Text>
           <Text style={styles.sectionValue}>{registration.course.name}</Text>
 
-          <Text style={{...styles.sectionTitle, backgroundColor: registration.box?.color ?? "transparent"}}>Box</Text>
-          <Text style={{...styles.sectionValue, backgroundColor: registration.box?.color ?? "transparent"}}>{registration.box?.name ?? "N/A"}</Text>
+          <Text
+            style={{
+              ...styles.sectionTitle,
+            }}
+          >
+            Box
+          </Text>
+          <Text
+            style={{
+              ...styles.sectionValue,
+              padding: 10,
+              backgroundColor: registration.box?.color ?? "transparent",
+            }}
+          >
+            {registration.box?.name ?? "N/A"}
+          </Text>
 
           {registration.extras && registration.extras.length > 0 && (
             <>
-              <Text style={styles.sectionTitle}>Extras</Text>
               {registration.extras.map((extra, index) => {
                 if (extra.type === "shirt") {
                   return (
-                    <Text
-                      key={`shirt-${extra.type}-${index}`}
-                      style={styles.sectionValue}
-                    >
-                      T-Shirt: {extra.value}
-                    </Text>
+                    <View key={`shirt-${extra.type}-${index}`}>
+                      <Text style={styles.sectionTitle}>T-Shirt</Text>
+                      <Text
+                        
+                        style={styles.sectionValue}
+                      >
+                        {extra.value}
+                      </Text>
+                    </View>
                   );
                 }
 
@@ -193,7 +216,6 @@ export default function ConfirmationPage() {
 
           <Text style={styles.sectionTitle}>Equipa</Text>
           <Text style={styles.sectionValue}>{registration.team.name}</Text>
-
         </View>
         {error && <Text style={styles.errorText}>{error}</Text>}
       </ScrollView>
@@ -201,7 +223,7 @@ export default function ConfirmationPage() {
       <View
         style={{
           ...styles.footer,
-          paddingBottom: Math.max(insets.bottom, 12),
+          paddingBottom: footerInset,
         }}
       >
         {!registration ||

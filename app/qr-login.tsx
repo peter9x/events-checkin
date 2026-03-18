@@ -2,11 +2,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import {
   BarcodeScanningResult,
   CameraView,
@@ -19,11 +23,13 @@ import { normalizeExpiry, parseLoginQrValue } from "../src/auth/qrLoginHelpers";
 import { useApp } from "../src/context/AppContext";
 import { useApi } from "../src/api/useApi";
 import { LoginResponsePayload } from "@/src/api/responseTypes";
+import { ApiNetworkError } from "../src/api/apiClient";
 
 const SCAN_COOLDOWN_MS = 1500;
 
 export default function QrLoginScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { setQrSession } = useAuth();
   const {
     applyStatsFromResponse,
@@ -149,9 +155,14 @@ export default function QrLoginScreen() {
           error.message.toLowerCase().startsWith("qr code inválido")
         ) {
           setError(error.message);
+        } else if (error instanceof ApiNetworkError) {
+          setError(`Erro de rede. ${error.message}`);
+        } else if (error instanceof Error) {
+          setError(`Erro de rede. ${error.name}: ${error.message}`);
         } else {
-          setError("Erro de rede. Tente novamente.");
+          setError(`Erro de rede. Tente novamente. QR: ${qrValue}`);
         }
+
         return false;
       } finally {
         setLoading(false);
@@ -218,45 +229,59 @@ export default function QrLoginScreen() {
   if (!permission.granted) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.card}>
-          <Text style={styles.title}>Permitir acesso à câmara</Text>
-          <Text style={styles.subtitle}>
-            A câmara é necessária para autenticar com QR Code.
-          </Text>
-          <Pressable style={styles.button} onPress={requestPermission}>
-            <Text style={styles.buttonText}>Permitir</Text>
-          </Pressable>
-        </View>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: Math.max(insets.bottom, 16) + 24 },
+          ]}
+        >
+          <View style={styles.card}>
+            <Text style={styles.title}>Permitir acesso à câmara</Text>
+            <Text style={styles.subtitle}>
+              A câmara é necessária para autenticar com QR Code.
+            </Text>
+            <Pressable style={styles.button} onPress={requestPermission}>
+              <Text style={styles.buttonText}>Permitir</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Entrar com QR Code</Text>
-      <Text style={styles.subtitle}>
-        Aponte a câmara para o QR Code de autenticação.
-      </Text>
-      <View style={styles.cameraCard}>
-        <View style={styles.cameraWrap}>
-          <CameraView
-            style={styles.camera}
-            barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-            onBarcodeScanned={scanEnabled && !loading ? handleScan : undefined}
-          />
-          <View style={styles.frame} />
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: Math.max(insets.bottom, 16) + 24 },
+        ]}
+      >
+        <Text style={styles.title}>Entrar com QR Code</Text>
+        <Text style={styles.subtitle}>
+          Aponte a câmara para o QR Code de autenticação.
+        </Text>
+        <View style={styles.cameraCard}>
+          <View style={styles.cameraWrap}>
+            <CameraView
+              style={styles.camera}
+              barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+              onBarcodeScanned={scanEnabled && !loading ? handleScan : undefined}
+            />
+            <View style={styles.frame} />
+          </View>
         </View>
-      </View>
-      {loading && (
-        <View style={styles.loadingRow}>
-          <ActivityIndicator color="#292929" />
-          <Text style={styles.loadingText}>A validar sessão...</Text>
-        </View>
-      )}
-      {error && <Text style={styles.errorText}>{error}</Text>}
-      <Pressable style={styles.linkButton} onPress={() => router.back()}>
-        <Text style={styles.linkText}>Voltar ao login</Text>
-      </Pressable>
+        {loading && (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator color="#292929" />
+            <Text style={styles.loadingText}>A validar sessão...</Text>
+          </View>
+        )}
+        {error && <Text style={styles.errorText}>{error}</Text>}
+        <Pressable style={styles.linkButton} onPress={() => router.back()}>
+          <Text style={styles.linkText}>Voltar ao login</Text>
+        </Pressable>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -265,8 +290,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F0F0F0",
+  },
+  content: {
     paddingHorizontal: 20,
     paddingTop: 12,
+    paddingBottom: 24,
   },
   title: {
     textAlign: "center",
@@ -316,7 +344,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     borderColor: "#E2E2E2",
-    marginTop: 40,
+    marginTop: 28,
     shadowColor: "#292929",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.12,

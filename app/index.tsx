@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { useAuth } from "../src/auth/AuthContext";
 import { useApp } from "../src/context/AppContext";
 import { useApi } from "../src/api/useApi";
@@ -9,6 +13,7 @@ import { useSessionReset } from "../src/auth/useSessionReset";
 
 export default function Index() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { token, isRestoring, user } = useAuth();
   const { event, isHydrating } = useApp();
   const { request } = useApi();
@@ -70,7 +75,7 @@ export default function Index() {
   ]);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
       <View style={styles.orbOne} />
       <View style={styles.orbTwo} />
@@ -85,10 +90,12 @@ export default function Index() {
         <Text style={styles.title}>Check In</Text>
         <Text style={styles.subtitle}>MUPY</Text>
       </View>
-      <Text style={styles.footer}>
+      <Text
+        style={[styles.footer, { bottom: Math.max(insets.bottom, 24) + 24 }]}
+      >
         {isValidating ? "A validar sessão..." : "A iniciar..."}
       </Text>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -149,7 +156,6 @@ const styles = StyleSheet.create({
   },
   footer: {
     position: "absolute",
-    bottom: 48,
     color: "rgba(248,250,252,0.6)",
     fontSize: 13,
   },

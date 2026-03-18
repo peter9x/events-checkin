@@ -8,6 +8,7 @@ import {
 } from "expo-camera";
 import { useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useAuth } from "../../src/auth/AuthContext";
 import { useCheckin } from "../../src/checkin/CheckinContext";
 import { useApp } from "../../src/context/AppContext";
@@ -30,6 +31,7 @@ export default function ScanScreen() {
   const isProcessingRef = useRef(false);
   const scanAllowedRef = useRef(true);
   const isFocused = useIsFocused();
+  const tabBarHeight = useBottomTabBarHeight();
   const lastScanRef = useRef<{ value: string | null; at: number }>({
     value: null,
     at: 0,
@@ -193,7 +195,7 @@ export default function ScanScreen() {
   if (!permission.granted) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.card}>
+        <View style={[styles.card, { marginBottom: tabBarHeight + 24 }]}>
           <Text style={styles.title}>Permitir acesso á camera</Text>
           <Text style={styles.subtitle}>
             Ative a câmara para ler os códigos QR no momento do check-in.
@@ -207,7 +209,10 @@ export default function ScanScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={[styles.container, { paddingBottom: tabBarHeight + 16 }]}
+      edges={["top", "left", "right"]}
+    >
       <Text style={styles.title}>Ler QR Code</Text>
       <Text style={styles.subtitle}>
         Alinhe o QrCode dentro do quadro para melhor leitura.

@@ -19,7 +19,7 @@ export type ApiEnvironmentSnapshot = ApiEnvironmentState & {
   localBaseUrl?: string;
 };
 
-const DEFAULT_LOCAL_API_BASE_URL = "http://192.168.1.250:8000";
+const DEFAULT_LOCAL_API_BASE_URL = "http://10.10.1.46:8000";
 
 const API_ENDPOINTS: Record<ApiEndpointKey, string> = {
   authQr: "/auth/qr",

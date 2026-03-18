@@ -84,10 +84,6 @@ export const parseLoginQrValue = (rawValue: string): ParsedLoginQr => {
 
   const endpointRaw = getFirstNonEmptyString(payload, [
     "endpoint",
-    "api_url",
-    "apiUrl",
-    "base_url",
-    "baseUrl",
     "url",
   ]);
 

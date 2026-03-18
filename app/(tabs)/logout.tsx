@@ -76,7 +76,7 @@ export default function LogoutScreen() {
   const canLoadMore = recentCheckins.length > visibleRecentCheckins.length;
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.container}>
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -85,7 +85,7 @@ export default function LogoutScreen() {
         scrollIndicatorInsets={{ right: 0 }}
       >
         <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Posto</Text>
+          <Text style={styles.sectionLabel}>Info do Posto</Text>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Nome</Text>
             <Text style={styles.infoValue}>

@@ -2,7 +2,7 @@
   "expo": {
     "name": "CheckIn",
     "slug": "CheckIn",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "checkin",
@@ -41,6 +41,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./plugins/with-android-cleartext-traffic",
       "expo-router",
       [
         "expo-splash-screen",
