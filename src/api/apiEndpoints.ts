@@ -25,7 +25,7 @@ const API_ENDPOINTS: Record<ApiEndpointKey, string> = {
   authQr: "/auth/qr",
   authValidate: "/auth/validate",
   checkinValidation: "/checkin/validation",
-  checkinSearch: "/checkin/search/",
+  checkinSearch: "/checkin/search",
   checkinConfirm: "/checkin/confirm",
 };
 

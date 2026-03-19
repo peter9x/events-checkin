@@ -66,6 +66,63 @@ const resolveTimeoutMs = () => {
 
 const API_TIMEOUT_MS = resolveTimeoutMs();
 
+const isPrivateIpv4 = (hostname: string) => {
+  const parts = hostname.split(".");
+  if (parts.length !== 4) {
+    return false;
+  }
+
+  const numbers = parts.map((part) => Number(part));
+  if (numbers.some((number) => Number.isNaN(number) || number < 0 || number > 255)) {
+    return false;
+  }
+
+  if (numbers[0] === 10) {
+    return true;
+  }
+  if (numbers[0] === 192 && numbers[1] === 168) {
+    return true;
+  }
+
+  return numbers[0] === 172 && numbers[1] >= 16 && numbers[1] <= 31;
+};
+
+const isLikelyLocalHost = (hostname: string) => {
+  const normalized = hostname.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  if (
+    normalized === "localhost" ||
+    normalized === "::1" ||
+    normalized === "[::1]" ||
+    normalized.endsWith(".local")
+  ) {
+    return true;
+  }
+
+  if (normalized.startsWith("127.")) {
+    return true;
+  }
+
+  return isPrivateIpv4(normalized);
+};
+
+const preferHttpsForRemoteBaseUrl = (baseUrl: string) => {
+  try {
+    const parsed = new URL(baseUrl);
+    if (parsed.protocol !== "http:" || isLikelyLocalHost(parsed.hostname)) {
+      return baseUrl;
+    }
+
+    parsed.protocol = "https:";
+    return parsed.toString().replace(/\/$/, "");
+  } catch {
+    return baseUrl;
+  }
+};
+
 const getErrorReason = (error: unknown) => {
   if (error instanceof Error) {
     const details = [error.name, error.message].filter(Boolean).join(": ").trim();
@@ -210,7 +267,9 @@ export async function apiRequest<T = any>(
   const failedAttempts: ApiAttemptFailure[] = [];
 
   for (const baseUrl of baseUrlCandidates) {
-    const urlWithPath = buildApiUrl(baseUrl, endpoint);
+    const requestBaseUrl = preferHttpsForRemoteBaseUrl(baseUrl);
+    const urlWithPath = buildApiUrl(requestBaseUrl, endpoint);
+
     const requestUrl = isGet
       ? appendQuery(urlWithPath, {
           ...query,

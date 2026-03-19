@@ -109,16 +109,12 @@ export default function ScanScreen() {
           return false;
         }
 
-        if (!data || typeof data !== "object") {
-          setError("Inscrição inválida.");
-          return false;
-        }
-
-        const registrationPayload = data as {
-          registration?: typeof data;
+        const registrationPayload = payload as {
+          registration?: typeof payload;
         };
+
         setRegistration(
-          (registrationPayload.registration ?? data) as Parameters<
+          (registrationPayload.registration ?? payload) as Parameters<
             typeof setRegistration
           >[0],
         );

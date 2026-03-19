@@ -124,8 +124,6 @@ export default function QrLoginScreen() {
 
         const loginPayload = loginSource as LoginResponsePayload;
 
-        console.log(loginPayload);
-
         const userId = loginPayload.user_id;
         const userName = loginPayload.user_name;
         const eventId = loginPayload.event.id;

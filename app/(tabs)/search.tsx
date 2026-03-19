@@ -121,16 +121,16 @@ export default function SearchScreen() {
     setResults([]);
 
     try {
-      const { response, data, payload, unauthorized } = await request(
+      const { response, payload, unauthorized } = await request(
         "checkinSearch",
         {
-          attr: "registrations",
           method: "POST",
           body: {
             value: trimmedQuery,
             parameter: searchParam,
             event: event.id,
           },
+          includeContext: false,
         },
       );
 
@@ -150,7 +150,7 @@ export default function SearchScreen() {
         return;
       }
 
-      const list = Array.isArray(data) ? data : [];
+      const list = payload.registrations;
       setResults(list as RegistrationResource[]);
       setSearched(true);
     } catch (err) {
@@ -260,9 +260,7 @@ export default function SearchScreen() {
                     style={styles.resultButton}
                     onPress={() => handleAdvance(result)}
                   >
-                    <Text style={styles.resultButtonText}>
-                      Check-in
-                    </Text>
+                    <Text style={styles.resultButtonText}>Check-in</Text>
                   </Pressable>
                 </View>
               );

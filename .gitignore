@@ -43,3 +43,4 @@ app-example
 /android
 /builds
 mupy-487112-59a6a8bddca0.json
+.eas/*
