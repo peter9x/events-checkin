@@ -24,6 +24,7 @@ import { useApp } from "../src/context/AppContext";
 import { useApi } from "../src/api/useApi";
 import { LoginResponsePayload } from "@/src/api/responseTypes";
 import { ApiNetworkError } from "../src/api/apiClient";
+import { getDeviceId } from "@/src/device/deviceInfo";
 
 const SCAN_COOLDOWN_MS = 1500;
 
@@ -35,7 +36,7 @@ export default function QrLoginScreen() {
     applyStatsFromResponse,
     setProfileFromUser,
     setEvent,
-    resetApiState,
+    applyLoginConnectionSettings,
   } = useApp();
   const { requestPublic } = useApi();
   const [permission, requestPermission] = useCameraPermissions();
@@ -77,8 +78,13 @@ export default function QrLoginScreen() {
       setLoading(true);
       setError(null);
       try {
-        resetApiState();
         const parsedQr = parseLoginQrValue(qrValue);
+        const resolvedApiBaseUrl = await applyLoginConnectionSettings({
+          endpoint: parsedQr.apiBaseUrl,
+          mqttSettingsOverrides: parsedQr.mqttSettingsOverrides,
+        });
+
+        console.log(parsedQr);
 
         const { response, data, payload } = await requestPublic(
           "authQr",
@@ -87,11 +93,12 @@ export default function QrLoginScreen() {
             method: "POST",
             body: {
               qr_code: parsedQr.qrCode,
+              device_id: getDeviceId(),
             },
             includeAuth: false,
             includeContext: false,
           },
-          parsedQr.apiBaseUrl,
+          resolvedApiBaseUrl,
         );
 
         if (!response) {
@@ -138,7 +145,7 @@ export default function QrLoginScreen() {
         }
 
         const user = { id: userId, name: String(userName) };
-        await setQrSession(user, String(token), expiresAt, parsedQr.apiBaseUrl);
+        await setQrSession(user, String(token), expiresAt, resolvedApiBaseUrl);
         setProfileFromUser(user as Record<string, unknown>);
         setEvent({
           id: eventId,
@@ -169,8 +176,8 @@ export default function QrLoginScreen() {
     },
     [
       applyStatsFromResponse,
+      applyLoginConnectionSettings,
       requestPublic,
-      resetApiState,
       router,
       setEvent,
       setProfileFromUser,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
   Pressable,
@@ -18,19 +18,29 @@ import { buildRecentCheckin } from "../src/checkin/checkinHelpers";
 import { useApp } from "../src/context/AppContext";
 import { useApi } from "../src/api/useApi";
 import { useSessionReset } from "../src/auth/useSessionReset";
+import { getDeviceId, getDeviceInfoPayload } from "../src/device/deviceInfo";
+import { buildCheckinTopic, publishMqttJson } from "../src/mqtt/mqttClient";
 
 export default function ConfirmationPage() {
   const router = useRouter();
-  const { token } = useAuth();
-  const { registration, setRegistration, addRecentCheckin } = useCheckin();
-  const { event, applyStatsFromResponse } = useApp();
+  const { token, user } = useAuth();
+  const {
+    registration,
+    registrationSourcePayload,
+    setRegistration,
+    addRecentCheckin,
+  } = useCheckin();
+  const { event, applyStatsFromResponse, mqttSettings } = useApp();
   const { request } = useApi();
   const resetSession = useSessionReset();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
+  const [didConfirm, setDidConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const publishedReadRegistrationRef = useRef<string | null>(null);
   const footerInset = Math.max(insets.bottom, 12);
   const footerHeight = 82 + footerInset;
+  const hasMqttServer = Boolean(mqttSettings.server.trim());
 
   useEffect(() => {
     if (token && !event?.id) {
@@ -38,13 +48,96 @@ export default function ConfirmationPage() {
     }
   }, [token, event?.id, resetSession]);
 
-  if (!registration) {
-    return null;
-  }
+  const registrationIdKey = registration ? String(registration.id ?? "") : "";
 
-  console.log(registration);
+  useEffect(() => {
+    setDidConfirm(false);
+    setError(null);
+  }, [registrationIdKey]);
+
+  useEffect(() => {
+    if (!registration) {
+      return;
+    }
+    if (!event?.id) {
+      return;
+    }
+    if (!registrationSourcePayload) {
+      return;
+    }
+    if (!hasMqttServer) {
+      return;
+    }
+    if (publishedReadRegistrationRef.current === registrationIdKey) {
+      return;
+    }
+
+    publishedReadRegistrationRef.current = registrationIdKey;
+
+    void (async () => {
+      const deviceId = await getDeviceId();
+      const topic = buildCheckinTopic(event.id, deviceId, "read");
+      const published = await publishMqttJson(
+        mqttSettings,
+        topic,
+        registrationSourcePayload,
+      );
+      if (!published) {
+        console.warn("[MQTT][ConfirmationPage] read:publish-failed", { topic });
+      }
+    })();
+  }, [
+    event?.id,
+    hasMqttServer,
+    mqttSettings,
+    registration,
+    registrationIdKey,
+    registrationSourcePayload,
+  ]);
+
+  const canConfirm = Boolean(
+    registration &&
+    registration.allow_check_in &&
+    !registration.check_in &&
+    !didConfirm,
+  );
+
+  const backgroundColor = useMemo(() => {
+    if (!registration) {
+      return "#e9e9e9";
+    }
+    if (didConfirm) {
+      return "#5CB85C";
+    }
+    if (registration.check_in) {
+      return "#5CB85C";
+    }
+    if (!registration.allow_check_in) {
+      return "#CD2923";
+    }
+    return "#e9e9e9";
+  }, [didConfirm, registration]);
+
+  const titleText = useMemo(() => {
+    if (!registration) {
+      return "";
+    }
+    if (didConfirm) {
+      return "Check-In Confirmado";
+    }
+    if (registration.check_in) {
+      return "Check-In Concluído";
+    }
+    if (!registration.allow_check_in) {
+      return "Check-In Inválido";
+    }
+    return "Confirmar Check-In";
+  }, [didConfirm, registration]);
 
   const handleConfirm = async () => {
+    if (!registration) {
+      return;
+    }
     if (!token) {
       await resetSession();
       return;
@@ -57,23 +150,57 @@ export default function ConfirmationPage() {
       await resetSession();
       return;
     }
+    if (!user?.id) {
+      await resetSession();
+      return;
+    }
+    if (!canConfirm) {
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
+      const deviceInfoPayload = await getDeviceInfoPayload();
+      const confirmPayload = {
+        registration: registration.id,
+        user_id: user.id,
+        event_id: event.id,
+        ...deviceInfoPayload,
+      };
+      const confirmTopic = buildCheckinTopic(
+        event.id,
+        deviceInfoPayload.device_id,
+        "confirm",
+      );
+
       const { response, payload, unauthorized } = await request(
         "checkinConfirm",
         {
           method: "POST",
-          body: {
-            registration: registration.id,
-          },
+          body: confirmPayload,
+          includeContext: false,
+          includeDeviceInfo: false,
         },
       );
 
       if (!response || unauthorized) {
         return;
+      }
+
+      if (hasMqttServer && payload.registration) {
+        void publishMqttJson(
+          mqttSettings,
+          confirmTopic,
+          payload.registration,
+        ).then((mqttConfirmPublished) => {
+          if (!mqttConfirmPublished) {
+            console.warn("[MQTT][ConfirmationPage] confirm:publish-failed", {
+              topic: confirmTopic,
+            });
+          }
+        });
       }
 
       applyStatsFromResponse(payload);
@@ -83,7 +210,9 @@ export default function ConfirmationPage() {
         return;
       }
 
+      setDidConfirm(true);
       addRecentCheckin(buildRecentCheckin(registration));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       setRegistration(null);
       router.replace("/(tabs)/scan");
     } catch (err) {
@@ -94,11 +223,15 @@ export default function ConfirmationPage() {
     }
   };
 
+  if (!registration) {
+    return null;
+  }
+
   return (
     <SafeAreaView
       style={{
         ...styles.container,
-        backgroundColor: registration.allow_check_in ? "#5cb85c" : "#cd2923",
+        backgroundColor,
       }}
     >
       <ScrollView
@@ -110,16 +243,16 @@ export default function ConfirmationPage() {
         {registration.check_in ? (
           <View
             style={{
-              padding: 16,
+              padding: 10,
               borderRadius: 10,
-              backgroundColor: "#ea988c",
+              backgroundColor: "#ffffff",
               marginTop: 10,
             }}
           >
-            <Text style={styles.title}>Check In Concluido</Text>
+            <Text style={styles.title}>{titleText}</Text>
           </View>
         ) : (
-          <Text style={styles.title}>Confirmar Check-In</Text>
+          <Text style={styles.title}>{titleText}</Text>
         )}
 
         <View style={styles.card}>
@@ -188,12 +321,7 @@ export default function ConfirmationPage() {
                   return (
                     <View key={`shirt-${extra.type}-${index}`}>
                       <Text style={styles.sectionTitle}>T-Shirt</Text>
-                      <Text
-                        
-                        style={styles.sectionValue}
-                      >
-                        {extra.value}
-                      </Text>
+                      <Text style={styles.sectionValue}>{extra.value}</Text>
                     </View>
                   );
                 }
@@ -215,7 +343,9 @@ export default function ConfirmationPage() {
           )}
 
           <Text style={styles.sectionTitle}>Equipa</Text>
-          <Text style={styles.sectionValue}>{registration.team.name}</Text>
+          <Text style={styles.sectionValue}>
+            {registration.team?.name ?? "—"}
+          </Text>
         </View>
         {error && <Text style={styles.errorText}>{error}</Text>}
       </ScrollView>
@@ -226,8 +356,7 @@ export default function ConfirmationPage() {
           paddingBottom: footerInset,
         }}
       >
-        {!registration ||
-        (registration.allow_check_in && !registration.check_in) ? (
+        {canConfirm ? (
           <Pressable
             style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleConfirm}
@@ -286,8 +415,8 @@ const styles = StyleSheet.create({
     padding: 22,
     borderWidth: 1,
     borderColor: "#E2E2E2",
-    shadowColor: "#292929",
-    shadowOffset: { width: 0, height: 10 },
+    shadowColor: "#ffffff",
+    shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
     elevation: 6,

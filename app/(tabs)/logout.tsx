@@ -1,45 +1,35 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { useEffect, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useCheckin } from "../../src/checkin/CheckinContext";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useApp } from "../../src/context/AppContext";
 import { useSessionReset } from "../../src/auth/useSessionReset";
-import { useIsFocused } from "@react-navigation/native";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useApi } from "../../src/api/useApi";
 import {
   DeviceInfoSnapshot,
   getDeviceInfoSnapshot,
 } from "../../src/device/deviceInfo";
+import { useIsFocused } from "@react-navigation/native";
+import { checkMqttConnection } from "../../src/mqtt/mqttClient";
 
-const DEFAULT_VISIBLE_CHECKINS = 6;
+type MqttConnectionState = "checking" | "ok" | "error" | "not-configured";
 
 export default function LogoutScreen() {
   const resetSession = useSessionReset();
-  const { recentCheckins } = useCheckin();
-  const { profile, event, apiMode, activeApiBaseUrl } = useApp();
-  const [visibleCheckins, setVisibleCheckins] = useState(
-    DEFAULT_VISIBLE_CHECKINS,
-  );
+  const { request } = useApi();
+  const { apiMode, profile, event, mqttSettings } = useApp();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfoSnapshot | null>(null);
   const [deviceInfoError, setDeviceInfoError] = useState<string | null>(null);
-  const isFocused = useIsFocused();
+  const [mqttState, setMqttState] = useState<MqttConnectionState>("checking");
   const tabBarHeight = useBottomTabBarHeight();
-
-  const handleLogout = async () => {
-    await resetSession();
-  };
+  const isFocused = useIsFocused();
 
   useEffect(() => {
     if (!isFocused) {
       return;
     }
+
     let isActive = true;
     const loadDeviceInfo = async () => {
       setDeviceInfoError(null);
@@ -50,154 +40,159 @@ export default function LogoutScreen() {
         }
       } catch {
         if (isActive) {
-          setDeviceInfoError("Não foi possível obter dados do posto.");
+          setDeviceInfo(null);
+          setDeviceInfoError("Não foi possível obter dados do dispositivo.");
         }
       }
     };
 
-    loadDeviceInfo();
+    void loadDeviceInfo();
     return () => {
       isActive = false;
     };
   }, [isFocused]);
 
   useEffect(() => {
-    if (recentCheckins.length < visibleCheckins) {
-      setVisibleCheckins(
-        Math.max(DEFAULT_VISIBLE_CHECKINS, recentCheckins.length),
-      );
+    if (!isFocused) {
+      return;
     }
-  }, [recentCheckins.length, visibleCheckins]);
 
-  const visibleRecentCheckins = useMemo(
-    () => recentCheckins.slice(0, visibleCheckins),
-    [recentCheckins, visibleCheckins],
-  );
-  const canLoadMore = recentCheckins.length > visibleRecentCheckins.length;
+    const hasMqttServer = Boolean(mqttSettings.server.trim());
+    console.log("[MQTT][LogoutScreen] check:start", {
+      hasMqttServer,
+      protocol: mqttSettings.protocol,
+      server: mqttSettings.server,
+      port: mqttSettings.port,
+      ssl: mqttSettings.ssl,
+      hasUser: Boolean(mqttSettings.user),
+      hasPass: Boolean(mqttSettings.pass),
+    });
+
+    if (!hasMqttServer) {
+      console.warn("[MQTT][LogoutScreen] check:missing-server");
+      setMqttState("not-configured");
+      return;
+    }
+
+    let isActive = true;
+    setMqttState("checking");
+
+    void (async () => {
+      try {
+        const isConnected = await checkMqttConnection(mqttSettings);
+        if (!isActive) {
+          return;
+        }
+        console.log("[MQTT][LogoutScreen] check:result", { isConnected });
+        setMqttState(isConnected ? "ok" : "error");
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+        console.error("[MQTT][LogoutScreen] check:exception", {
+          message: error instanceof Error ? error.message : String(error),
+        });
+        setMqttState("error");
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [isFocused, mqttSettings]);
+
+  const mqttStatusLabel =
+    mqttState === "ok"
+      ? "OK"
+      : mqttState === "error"
+        ? "Falhou"
+        : mqttState === "not-configured"
+          ? "Não configurado"
+          : "A validar...";
+
+  const handleLogout = async () => {
+    if (isLoggingOut) {
+      return;
+    }
+    setIsLoggingOut(true);
+
+    try {
+      await request("authLogout", {
+        method: "POST",
+        includeContext: false,
+      });
+    } catch {
+      // Ignore API logout failures and always clear local session.
+    } finally {
+      await resetSession();
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: tabBarHeight + 24 },
-        ]}
-        scrollIndicatorInsets={{ right: 0 }}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 24 }]}
       >
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>Info do Posto</Text>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Nome</Text>
             <Text style={styles.infoValue}>
-              {profile?.name || profile?.email || "Team Member"}
+              {profile?.name || profile?.email || "—"}
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Modo API</Text>
+            <Text style={styles.infoLabel}>Modo</Text>
             <Text style={styles.infoValue}>
               {apiMode === "local" ? "Local" : "Online"}
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Base URL</Text>
-            <Text style={styles.infoValue}>{activeApiBaseUrl || "—"}</Text>
+            <Text style={styles.infoLabel}>IP</Text>
+            <Text style={styles.infoValue}>
+              {deviceInfo?.ipAddress || (deviceInfoError ? "—" : "A obter...")}
+            </Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Device ID</Text>
+            <Text style={styles.infoValue}>
+              {deviceInfo?.deviceId || (deviceInfoError ? "—" : "A obter...")}
+            </Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Evento</Text>
+            <Text style={styles.infoValue}>{event?.name || "—"}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>MQTT</Text>
+            <Text
+              style={[
+                styles.infoValue,
+                mqttState === "ok"
+                  ? styles.statusOk
+                  : mqttState === "error"
+                    ? styles.statusError
+                    : undefined,
+              ]}
+            >
+              {mqttStatusLabel}
+            </Text>
           </View>
           {deviceInfoError ? (
             <Text style={styles.infoError}>{deviceInfoError}</Text>
-          ) : !deviceInfo ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color="#292929" />
-              <Text style={styles.loadingText}>A obter dados...</Text>
-            </View>
-          ) : (
-            <>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>IP</Text>
-                <Text style={styles.infoValue}>
-                  {deviceInfo?.ipAddress || "—"}
-                </Text>
-              </View>
-              {deviceInfo?.macAddress ? (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>MAC</Text>
-                  <Text style={styles.infoValue}>{deviceInfo.macAddress}</Text>
-                </View>
-              ) : null}
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Device ID</Text>
-                <Text style={styles.infoValue}>
-                  {deviceInfo?.deviceId || "—"}
-                </Text>
-              </View>
-              {deviceInfo?.wifiName ? (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Rede WiFi</Text>
-                  <Text style={styles.infoValue}>{deviceInfo.wifiName}</Text>
-                </View>
-              ) : null}
-            </>
-          )}
+          ) : null}
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionLabel}>Evento</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Nome</Text>
-            <Text style={styles.infoValue}>{event?.name || "—"}</Text>
-          </View>
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.recentHeader}>
-            <Text style={styles.sectionLabel}>Últimas ações</Text>
-            <Text style={styles.recentCount}>{recentCheckins.length}</Text>
-          </View>
-          {visibleRecentCheckins.length === 0 ? (
-            <Text style={styles.emptyText}>Sem ações recentes.</Text>
-          ) : (
-            visibleRecentCheckins.map((item, index) => (
-              <View
-                key={item.id}
-                style={[
-                  styles.recentItem,
-                  index === 0 && styles.recentItemFirst,
-                ]}
-              >
-                <Text style={styles.recentName}>{item.athleteName}</Text>
-                <View style={styles.recentMetaRow}>
-                  <Text style={styles.recentMeta}>
-                    Dorsal: {item.bibNumber ?? "N/A"}
-                  </Text>
-                  <Text style={styles.recentMeta}>
-                    T-Shirt: {item.shirt ?? "—"}
-                  </Text>
-                  <Text style={styles.recentMeta}>Box: {item.box ?? "—"}</Text>
-                </View>
-              </View>
-            ))
-          )}
-          {canLoadMore && (
-            <Pressable
-              style={styles.loadMoreButton}
-              onPress={() =>
-                setVisibleCheckins((current) =>
-                  Math.min(
-                    current + DEFAULT_VISIBLE_CHECKINS,
-                    recentCheckins.length,
-                  ),
-                )
-              }
-            >
-              <Text style={styles.loadMoreText}>Carregar mais</Text>
-            </Pressable>
-          )}
-        </View>
-
-        <View style={styles.footer}>
-          <Pressable style={styles.button} onPress={handleLogout}>
-            <Text style={styles.buttonText}>Terminar sessão</Text>
-          </Pressable>
-        </View>
+        <Pressable
+          style={[styles.button, isLoggingOut && styles.buttonDisabled]}
+          onPress={handleLogout}
+          disabled={isLoggingOut}
+        >
+          <Text style={styles.buttonText}>
+            {isLoggingOut ? "A terminar sessão..." : "Terminar sessão"}
+          </Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -212,7 +207,6 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 16,
   },
   card: {
     backgroundColor: "#FFFFFF",
@@ -226,10 +220,12 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 6,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#292929",
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#62929E",
+    textTransform: "uppercase",
+    letterSpacing: 1,
   },
   infoRow: {
     marginTop: 10,
@@ -247,92 +243,31 @@ const styles = StyleSheet.create({
     color: "#292929",
   },
   infoError: {
-    marginTop: 10,
+    marginTop: 12,
     fontSize: 13,
     color: "#B42318",
   },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#62929E",
-    textTransform: "uppercase",
-    letterSpacing: 1,
+  statusOk: {
+    color: "#2E7D32",
+    fontWeight: "700",
   },
-  loadingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 12,
-  },
-  loadingText: {
-    fontSize: 13,
-    color: "#7A7A7A",
-  },
-  footer: {
-    paddingBottom: 50,
-  },
-  recentHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  recentCount: {
-    fontSize: 12,
-    color: "#7A7A7A",
-  },
-  recentItem: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
-  },
-  recentItemFirst: {
-    marginTop: 10,
-    paddingTop: 0,
-    borderTopWidth: 0,
-  },
-  recentName: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#292929",
-  },
-  recentMetaRow: {
-    marginTop: 6,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  recentMeta: {
-    fontSize: 13,
-    color: "#5A5A5A",
-  },
-  emptyText: {
-    marginTop: 12,
-    fontSize: 13,
-    color: "#7A7A7A",
-  },
-  loadMoreButton: {
-    marginTop: 14,
-    alignSelf: "flex-start",
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-  },
-  loadMoreText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#292929",
+  statusError: {
+    color: "#B42318",
+    fontWeight: "700",
   },
   button: {
-    marginTop: 12,
+    marginTop: 4,
     backgroundColor: "#292929",
     borderRadius: 5,
     height: 50,
-    paddingVertical: 12,
     alignItems: "center",
+    justifyContent: "center",
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   buttonText: {
     color: "#F0F0F0",
-    backgroundColor: "#292929",
     fontSize: 15,
     fontWeight: "600",
   },

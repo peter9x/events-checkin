@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
 
 export type RegistrationResource = {
   id: string;
@@ -103,7 +103,12 @@ export type RecentCheckin = {
 
 type CheckinContextValue = {
   registration: RegistrationResource | null;
+  registrationSourcePayload: unknown | null;
   setRegistration: (registration: RegistrationResource | null) => void;
+  setRegistrationWithSource: (
+    registration: RegistrationResource | null,
+    sourcePayload: unknown,
+  ) => void;
   recentCheckins: RecentCheckin[];
   addRecentCheckin: (checkin: RecentCheckin) => void;
   clearRecentCheckins: () => void;
@@ -117,28 +122,56 @@ export function CheckinProvider({ children }: { children: React.ReactNode }) {
   const [registration, setRegistration] = useState<RegistrationResource | null>(
     null
   );
+  const [registrationSourcePayload, setRegistrationSourcePayload] =
+    useState<unknown | null>(null);
   const [recentCheckins, setRecentCheckins] = useState<RecentCheckin[]>([]);
 
-  const addRecentCheckin = (checkin: RecentCheckin) => {
+  const addRecentCheckin = useCallback((checkin: RecentCheckin) => {
     setRecentCheckins((current) => [
       checkin,
       ...current.filter((item) => item.id !== checkin.id),
     ].slice(0, MAX_RECENT_CHECKINS));
-  };
+  }, []);
 
-  const clearRecentCheckins = () => {
+  const clearRecentCheckins = useCallback(() => {
     setRecentCheckins([]);
-  };
+  }, []);
+
+  const setRegistrationValue = useCallback(
+    (nextRegistration: RegistrationResource | null) => {
+      setRegistration(nextRegistration);
+      setRegistrationSourcePayload(nextRegistration);
+    },
+    [],
+  );
+
+  const setRegistrationWithSource = useCallback(
+    (nextRegistration: RegistrationResource | null, sourcePayload: unknown) => {
+      setRegistration(nextRegistration);
+      setRegistrationSourcePayload(sourcePayload);
+    },
+    [],
+  );
 
   const value = useMemo(
     () => ({
       registration,
-      setRegistration,
+      registrationSourcePayload,
+      setRegistration: setRegistrationValue,
+      setRegistrationWithSource,
       recentCheckins,
       addRecentCheckin,
       clearRecentCheckins,
     }),
-    [registration, recentCheckins]
+    [
+      registration,
+      registrationSourcePayload,
+      setRegistrationValue,
+      setRegistrationWithSource,
+      recentCheckins,
+      addRecentCheckin,
+      clearRecentCheckins,
+    ]
   );
 
   return (

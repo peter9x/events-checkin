@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Keyboard,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -38,7 +39,7 @@ export default function SearchScreen() {
   const router = useRouter();
   const { token } = useAuth();
   const { event, applyStatsFromResponse } = useApp();
-  const { setRegistration } = useCheckin();
+  const { setRegistrationWithSource } = useCheckin();
   const { request } = useApi();
   const resetSession = useSessionReset();
   const isFocused = useIsFocused();
@@ -49,6 +50,21 @@ export default function SearchScreen() {
       void resetSession();
     }
   }, [isFocused, token, event?.id, resetSession]);
+
+  useEffect(() => {
+    if (!isFocused) {
+      return;
+    }
+
+    setBibQuery("");
+    setIdentificationQuery("");
+    setCodeQuery("");
+    setActiveParam("bib_number");
+    setResults([]);
+    setSearched(false);
+    setError(null);
+    setLoading(false);
+  }, [isFocused]);
 
   useEffect(() => {
     setResults([]);
@@ -88,6 +104,8 @@ export default function SearchScreen() {
   };
 
   const handleSearch = async () => {
+    Keyboard.dismiss();
+
     if (loading) {
       return;
     }
@@ -163,7 +181,7 @@ export default function SearchScreen() {
   };
 
   const handleAdvance = (registration: RegistrationResource) => {
-    setRegistration(registration);
+    setRegistrationWithSource(registration, registration);
     router.push("/confirmation");
   };
 
@@ -345,10 +363,10 @@ const styles = StyleSheet.create({
   },
   resultsSection: {
     marginTop: 20,
-    gap: 12,
     paddingBottom: 24,
   },
   resultCard: {
+    marginTop: 12,
     backgroundColor: "#FFFFFF",
     borderRadius: 10,
     padding: 15,

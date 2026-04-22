@@ -3,6 +3,7 @@ export type ApiMode = "online" | "local";
 export type ApiEndpointKey =
   | "authQr"
   | "authValidate"
+  | "authLogout"
   | "checkinValidation"
   | "checkinSearch"
   | "checkinConfirm";
@@ -19,11 +20,18 @@ export type ApiEnvironmentSnapshot = ApiEnvironmentState & {
   localBaseUrl?: string;
 };
 
-const DEFAULT_LOCAL_API_BASE_URL = "http://10.10.1.46:8000";
+export type ConfiguredApiBaseUrls = {
+  onlineBaseUrl?: string;
+  localBaseUrl?: string;
+};
+
+const DEFAULT_LOCAL_API_BASE_URL = "http://10.10.5.10";
+const DEFAULT_PREFERRED_MODE: ApiMode = "online";
 
 const API_ENDPOINTS: Record<ApiEndpointKey, string> = {
   authQr: "/auth/qr",
   authValidate: "/auth/validate",
+  authLogout: "/auth/logout",
   checkinValidation: "/checkin/validation",
   checkinSearch: "/checkin/search",
   checkinConfirm: "/checkin/confirm",
@@ -66,7 +74,7 @@ const getRemotePathSuffix = (baseUrl: string | undefined) => {
   }
 };
 
-export const getConfiguredApiBaseUrls = () => {
+const getEnvConfiguredApiBaseUrls = (): ConfiguredApiBaseUrls => {
   const onlineBaseUrl = normalizeApiBaseUrl(process.env.EXPO_PUBLIC_API_URL);
   const onlinePathSuffix = getRemotePathSuffix(onlineBaseUrl);
   const inferredLocalBaseUrl = `${DEFAULT_LOCAL_API_BASE_URL}${onlinePathSuffix}`;
@@ -79,6 +87,14 @@ export const getConfiguredApiBaseUrls = () => {
     localBaseUrl,
   };
 };
+
+let configuredApiBaseUrls = getEnvConfiguredApiBaseUrls();
+let preferredApiMode: ApiMode = DEFAULT_PREFERRED_MODE;
+
+const getBaseUrlForMode = (
+  mode: ApiMode,
+  baseUrls: ConfiguredApiBaseUrls,
+) => (mode === "local" ? baseUrls.localBaseUrl : baseUrls.onlineBaseUrl);
 
 const isPrivateIpv4 = (hostname: string) => {
   const parts = hostname.split(".");
@@ -131,49 +147,63 @@ export const resolveApiMode = (baseUrl: string | undefined): ApiMode => {
   }
 
   if (!baseUrl) {
-    return "online";
+    return preferredApiMode;
   }
 
   try {
     const parsed = new URL(baseUrl);
     return isLikelyLocalHost(parsed.hostname) ? "local" : "online";
   } catch {
-    return "online";
+    return preferredApiMode;
   }
 };
 
-const uniqueBaseUrls = (urls: (string | undefined)[]) => {
-  const seen = new Set<string>();
-  const result: string[] = [];
+export const getConfiguredApiBaseUrls = () => configuredApiBaseUrls;
 
-  urls.forEach((url) => {
-    if (!url) {
-      return;
-    }
+export const setConfiguredApiBaseUrls = (
+  nextValues: Partial<ConfiguredApiBaseUrls>,
+) => {
+  const merged = {
+    ...configuredApiBaseUrls,
+    ...nextValues,
+  };
+  const normalizedOnline = normalizeApiBaseUrl(merged.onlineBaseUrl);
+  const onlinePathSuffix = getRemotePathSuffix(normalizedOnline);
+  const fallbackLocalBaseUrl = `${DEFAULT_LOCAL_API_BASE_URL}${onlinePathSuffix}`;
+  const normalizedLocal =
+    normalizeApiBaseUrl(merged.localBaseUrl) ?? fallbackLocalBaseUrl;
 
-    const key = url.toLowerCase();
-    if (seen.has(key)) {
-      return;
-    }
-
-    seen.add(key);
-    result.push(url);
-  });
-
-  return result;
+  configuredApiBaseUrls = {
+    onlineBaseUrl: normalizedOnline,
+    localBaseUrl: normalizedLocal,
+  };
 };
+
+export const setPreferredApiMode = (mode: ApiMode) => {
+  preferredApiMode = mode;
+};
+
+export const getPreferredApiMode = () => preferredApiMode;
 
 export const getApiEnvironmentSnapshot = (
   state: ApiEnvironmentState,
 ): ApiEnvironmentSnapshot => {
   const { onlineBaseUrl, localBaseUrl } = getConfiguredApiBaseUrls();
-  const fallbackBaseUrl = state.sessionBaseUrl ?? onlineBaseUrl ?? localBaseUrl;
-  const activeBaseUrl = state.activeBaseUrl ?? fallbackBaseUrl;
+  const normalizedSessionBaseUrl = normalizeApiBaseUrl(state.sessionBaseUrl);
+  const normalizedActiveBaseUrl = normalizeApiBaseUrl(state.activeBaseUrl);
+
+  const mode =
+    resolveApiMode(normalizedSessionBaseUrl ?? normalizedActiveBaseUrl) ??
+    preferredApiMode;
+  const modeBaseUrl = getBaseUrlForMode(mode, { onlineBaseUrl, localBaseUrl });
+  const activeBaseUrl =
+    normalizedSessionBaseUrl ?? normalizedActiveBaseUrl ?? modeBaseUrl;
 
   return {
     ...state,
+    sessionBaseUrl: normalizedSessionBaseUrl,
     activeBaseUrl,
-    mode: resolveApiMode(activeBaseUrl),
+    mode,
     onlineBaseUrl,
     localBaseUrl,
   };
@@ -181,57 +211,35 @@ export const getApiEnvironmentSnapshot = (
 
 export const getInitialApiEnvironmentState = (
   sessionBaseUrl?: string | null,
-): ApiEnvironmentState => ({
-  activeBaseUrl: normalizeApiBaseUrl(sessionBaseUrl) ?? undefined,
-  sessionBaseUrl: normalizeApiBaseUrl(sessionBaseUrl) ?? undefined,
-  lockToLocal: false,
-});
+): ApiEnvironmentState => {
+  const normalizedSessionBaseUrl = normalizeApiBaseUrl(sessionBaseUrl);
+  if (normalizedSessionBaseUrl) {
+    setPreferredApiMode(resolveApiMode(normalizedSessionBaseUrl));
+  }
+
+  return {
+    activeBaseUrl: normalizedSessionBaseUrl ?? undefined,
+    sessionBaseUrl: normalizedSessionBaseUrl ?? undefined,
+    lockToLocal: false,
+  };
+};
 
 export const getApiBaseUrlCandidates = (
   state: ApiEnvironmentState,
   preferredBaseUrl?: string | null,
 ) => {
-  const snapshot = getApiEnvironmentSnapshot(state);
   const normalizedPreferred = normalizeApiBaseUrl(preferredBaseUrl);
-
-  if (snapshot.lockToLocal) {
-    return uniqueBaseUrls([
-      normalizedPreferred && resolveApiMode(normalizedPreferred) === "local"
-        ? normalizedPreferred
-        : undefined,
-      snapshot.mode === "local" ? snapshot.activeBaseUrl : undefined,
-      snapshot.sessionBaseUrl &&
-      resolveApiMode(snapshot.sessionBaseUrl) === "local"
-        ? snapshot.sessionBaseUrl
-        : undefined,
-      snapshot.localBaseUrl,
-    ]);
+  if (normalizedPreferred) {
+    return [normalizedPreferred];
   }
 
-  const onlineCandidates = uniqueBaseUrls([
-    normalizedPreferred && resolveApiMode(normalizedPreferred) === "online"
-      ? normalizedPreferred
-      : undefined,
-    snapshot.mode === "online" ? snapshot.activeBaseUrl : undefined,
-    snapshot.sessionBaseUrl &&
-    resolveApiMode(snapshot.sessionBaseUrl) === "online"
-      ? snapshot.sessionBaseUrl
-      : undefined,
-    snapshot.onlineBaseUrl,
-  ]);
-  const localCandidates = uniqueBaseUrls([
-    normalizedPreferred && resolveApiMode(normalizedPreferred) === "local"
-      ? normalizedPreferred
-      : undefined,
-    snapshot.mode === "local" ? snapshot.activeBaseUrl : undefined,
-    snapshot.sessionBaseUrl &&
-    resolveApiMode(snapshot.sessionBaseUrl) === "local"
-      ? snapshot.sessionBaseUrl
-      : undefined,
-    snapshot.localBaseUrl,
-  ]);
+  const snapshot = getApiEnvironmentSnapshot(state);
+  const modeBaseUrl =
+    snapshot.mode === "local" ? snapshot.localBaseUrl : snapshot.onlineBaseUrl;
+  const selectedBaseUrl =
+    snapshot.sessionBaseUrl ?? snapshot.activeBaseUrl ?? modeBaseUrl;
 
-  return uniqueBaseUrls([...onlineCandidates, ...localCandidates]);
+  return selectedBaseUrl ? [selectedBaseUrl] : [];
 };
 
 export const markApiBaseUrlReachable = (
@@ -243,10 +251,7 @@ export const markApiBaseUrlReachable = (
     return state;
   }
 
-  const nextMode = resolveApiMode(normalizedBaseUrl);
-  if (state.lockToLocal && nextMode !== "local") {
-    return state;
-  }
+  setPreferredApiMode(resolveApiMode(normalizedBaseUrl));
 
   return {
     ...state,
@@ -258,34 +263,19 @@ export const markApiBaseUrlUnreachable = (
   state: ApiEnvironmentState,
   baseUrl: string,
 ): ApiEnvironmentState => {
-  const snapshot = getApiEnvironmentSnapshot(state);
   const normalizedBaseUrl = normalizeApiBaseUrl(baseUrl);
-
-  if (!normalizedBaseUrl || !isSameBaseUrl(snapshot.activeBaseUrl, normalizedBaseUrl)) {
-    return snapshot;
+  if (!normalizedBaseUrl) {
+    return state;
   }
 
-  const currentMode = resolveApiMode(normalizedBaseUrl);
-  const fallback = getApiBaseUrlCandidates(snapshot).find(
-    (candidate) => !isSameBaseUrl(candidate, normalizedBaseUrl),
-  );
-
-  if (!fallback) {
-    return snapshot;
-  }
-
-  const nextMode = resolveApiMode(fallback);
-  const nextLockToLocal =
-    snapshot.lockToLocal || (currentMode === "online" && nextMode === "local");
-
-  if (nextLockToLocal && nextMode !== "local") {
-    return snapshot;
+  const normalizedActiveBaseUrl = normalizeApiBaseUrl(state.activeBaseUrl);
+  if (!isSameBaseUrl(normalizedBaseUrl, normalizedActiveBaseUrl)) {
+    return state;
   }
 
   return {
-    ...snapshot,
-    activeBaseUrl: fallback,
-    lockToLocal: nextLockToLocal,
+    ...state,
+    activeBaseUrl: normalizeApiBaseUrl(state.sessionBaseUrl),
   };
 };
 
@@ -295,8 +285,12 @@ export const resetApiEnvironment = (
 ): ApiEnvironmentState => {
   const normalizedSessionBaseUrl =
     sessionBaseUrl === undefined
-      ? state.sessionBaseUrl
+      ? normalizeApiBaseUrl(state.sessionBaseUrl)
       : normalizeApiBaseUrl(sessionBaseUrl);
+
+  if (normalizedSessionBaseUrl) {
+    setPreferredApiMode(resolveApiMode(normalizedSessionBaseUrl));
+  }
 
   return {
     activeBaseUrl: normalizedSessionBaseUrl,

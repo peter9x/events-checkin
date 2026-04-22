@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import * as Network from "expo-network";
 import * as Location from "expo-location";
+import * as Battery from "expo-battery";
 import { PermissionsAndroid, Platform } from "react-native";
 
 const DEVICE_ID_KEY = "checkin.deviceId";
@@ -17,30 +18,71 @@ export type DeviceInfoPayload = {
   ip_address: string | null;
   mac_address: string | null;
   wifi_ssid: string | null;
+  battery_percentage: number | null;
 };
 
 const createFallbackId = () =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
-let deviceInfoSnapshotPromise: Promise<DeviceInfoSnapshot> | null = null;
+const normalizeBatteryPercentage = (value: unknown): number | null => {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return null;
+  }
 
-export async function getDeviceId(): Promise<string> {
+  if (value <= 1) {
+    return Math.round(value * 100);
+  }
+
+  if (value <= 100) {
+    return Math.round(value);
+  }
+
+  return null;
+};
+
+let deviceInfoSnapshotPromise: Promise<DeviceInfoSnapshot> | null = null;
+let deviceIdPromise: Promise<string> | null = null;
+let cachedDeviceId: string | null = null;
+
+const resolveStoredDeviceId = async (): Promise<string> => {
+  if (cachedDeviceId) {
+    return cachedDeviceId;
+  }
+
   try {
     const stored = await SecureStore.getItemAsync(DEVICE_ID_KEY);
     if (stored) {
+      cachedDeviceId = stored;
       return stored;
     }
   } catch {
-    // Ignore read errors and create a new id.
+    // Ignore read errors and continue with generated id.
   }
 
   const nextId = createFallbackId();
+  cachedDeviceId = nextId;
+
   try {
     await SecureStore.setItemAsync(DEVICE_ID_KEY, nextId);
   } catch {
-    // Ignore write errors; the id will be regenerated next time.
+    // Ignore write errors; keep runtime cached id stable for this app session.
   }
+
   return nextId;
+};
+
+export async function getDeviceId(): Promise<string> {
+  if (cachedDeviceId) {
+    return cachedDeviceId;
+  }
+
+  if (!deviceIdPromise) {
+    deviceIdPromise = resolveStoredDeviceId().finally(() => {
+      deviceIdPromise = null;
+    });
+  }
+
+  return deviceIdPromise;
 }
 
 export async function getDeviceInfoSnapshot(): Promise<DeviceInfoSnapshot> {
@@ -107,12 +149,22 @@ export async function getCachedDeviceInfoSnapshot(): Promise<DeviceInfoSnapshot>
   return deviceInfoSnapshotPromise;
 }
 
+export async function getDeviceBatteryPercentage(): Promise<number | null> {
+  const batteryLevel = await Battery.getBatteryLevelAsync().catch(() => null);
+  return normalizeBatteryPercentage(batteryLevel);
+}
+
 export async function getDeviceInfoPayload(): Promise<DeviceInfoPayload> {
-  const snapshot = await getCachedDeviceInfoSnapshot();
+  const [snapshot, batteryPercentage] = await Promise.all([
+    getCachedDeviceInfoSnapshot(),
+    getDeviceBatteryPercentage(),
+  ]);
+
   return {
     device_id: snapshot.deviceId,
     ip_address: snapshot.ipAddress,
     mac_address: snapshot.macAddress,
     wifi_ssid: snapshot.wifiName,
+    battery_percentage: batteryPercentage,
   };
 }

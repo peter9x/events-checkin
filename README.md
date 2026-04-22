@@ -12,16 +12,23 @@
    npx expo start
    ```
 
-3. Configure API endpoints (optional but recommended)
+3. Configure API and MQTT endpoints (optional but recommended)
 
    ```bash
    EXPO_PUBLIC_API_URL=http://192.168.1.251:8000/api/v1
-   EXPO_PUBLIC_LOCAL_API_URL=http://10.10.1.5/api/v1
+   EXPO_PUBLIC_LOCAL_API_URL=http://10.10.5.10/api/v1
    EXPO_PUBLIC_API_TIMEOUT_MS=5000
+   EXPO_PUBLIC_MQTT_PROTOCOL=ws
+   EXPO_PUBLIC_MQTT_SERVER=192.168.1.251
+   EXPO_PUBLIC_MQTT_PORT=9001
+   EXPO_PUBLIC_MQTT_USER=
+   EXPO_PUBLIC_MQTT_PASS=
+   EXPO_PUBLIC_MQTT_SSL=false
    ```
 
-   If `EXPO_PUBLIC_LOCAL_API_URL` is not set, the app falls back to `http://10.10.1.5` and keeps the same path suffix from `EXPO_PUBLIC_API_URL` (for example `/api/v1`).
-   For each new QR login, the app starts by trying online endpoints first. If network access fails, it falls back to local and stays in local mode for the rest of that session. If the QR payload contains a custom `endpoint`, that value is stored and used as the session endpoint preference.
+   If `EXPO_PUBLIC_LOCAL_API_URL` is not set, the app falls back to `http://10.10.5.10` and keeps the same path suffix from `EXPO_PUBLIC_API_URL` (for example `/api/v1`).
+   The app always uses a single API mode per session (online or local), without automatic fallback between modes.
+   Login QR can override `endpoint` and MQTT keys (`mqtt_protocol`, `mqtt_server`, `mqtt_port`, `mqtt_user`, `mqtt_pass`, `mqtt_ssl`). Those overrides are persisted until changed by another login QR.
 
 ```
 Primary color: #A5BF13

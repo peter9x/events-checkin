@@ -20,7 +20,7 @@ const SCAN_COOLDOWN_MS = 1500;
 export default function ScanScreen() {
   const router = useRouter();
   const { token } = useAuth();
-  const { setRegistration } = useCheckin();
+  const { setRegistrationWithSource } = useCheckin();
   const { event, applyStatsFromResponse } = useApp();
   const { request } = useApi();
   const resetSession = useSessionReset();
@@ -81,7 +81,7 @@ export default function ScanScreen() {
       setError(null);
 
       try {
-        const { response, data, payload, unauthorized } = await request(
+        const { response, payload, unauthorized } = await request(
           "checkinValidation",
           {
             attr: "data",
@@ -113,10 +113,11 @@ export default function ScanScreen() {
           registration?: typeof payload;
         };
 
-        setRegistration(
+        setRegistrationWithSource(
           (registrationPayload.registration ?? payload) as Parameters<
-            typeof setRegistration
+            typeof setRegistrationWithSource
           >[0],
+          payload,
         );
         if (isFocused) {
           router.push("/confirmation");
@@ -134,7 +135,7 @@ export default function ScanScreen() {
     [
       token,
       router,
-      setRegistration,
+      setRegistrationWithSource,
       isFocused,
       event?.id,
       applyStatsFromResponse,

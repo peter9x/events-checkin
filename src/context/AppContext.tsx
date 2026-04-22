@@ -12,12 +12,22 @@ import {
   ApiMode,
   getApiBaseUrlCandidates,
   getApiEnvironmentSnapshot,
+  getConfiguredApiBaseUrls,
   getInitialApiEnvironmentState,
   markApiBaseUrlReachable,
   markApiBaseUrlUnreachable,
   normalizeApiBaseUrl,
   resetApiEnvironment,
+  resolveApiMode,
+  setConfiguredApiBaseUrls as setGlobalConfiguredApiBaseUrls,
+  setPreferredApiMode as setGlobalPreferredApiMode,
 } from "../api/apiEndpoints";
+import {
+  getDefaultMqttSettings,
+  mergeMqttSettings,
+  MqttSettings,
+  MqttSettingsOverrides,
+} from "../mqtt/mqttConfig";
 
 export type AppProfile = {
   name: string;
@@ -31,6 +41,11 @@ export type AppEvent = {
 
 export type AppStats = Record<string, unknown> | null;
 
+type ApplyLoginConnectionSettingsInput = {
+  endpoint?: string | null;
+  mqttSettingsOverrides?: MqttSettingsOverrides | null;
+};
+
 type AppContextValue = {
   profile: AppProfile | null;
   event: AppEvent | null;
@@ -40,6 +55,7 @@ type AppContextValue = {
   sessionApiBaseUrl?: string;
   onlineApiBaseUrl?: string;
   localApiBaseUrl?: string;
+  mqttSettings: MqttSettings;
   isHydrating: boolean;
   setProfileFromUser: (user: Record<string, unknown> | null) => void;
   setEvent: (event: AppEvent | null) => void;
@@ -51,10 +67,26 @@ type AppContextValue = {
   getApiBaseUrls: (preferredBaseUrl?: string | null) => string[];
   markApiReachable: (baseUrl: string) => void;
   markApiUnreachable: (baseUrl: string) => void;
+  applyLoginConnectionSettings: (
+    input: ApplyLoginConnectionSettingsInput,
+  ) => Promise<string | null>;
+};
+
+type StoredConnectionConfig = {
+  onlineApiBaseUrl?: string;
+  localApiBaseUrl?: string;
+  preferredApiMode?: ApiMode;
+  mqttSettings?: Partial<MqttSettings>;
 };
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 const EVENT_STORAGE_KEY = "checkin.event";
+const CONNECTION_STORAGE_KEY = "checkin.connectionConfig";
+
+const resolveModeBaseUrl = (
+  mode: ApiMode,
+  baseUrls: { onlineBaseUrl?: string; localBaseUrl?: string },
+) => (mode === "local" ? baseUrls.localBaseUrl : baseUrls.onlineBaseUrl);
 
 function normalizeProfile(
   user: Record<string, unknown> | null,
@@ -87,6 +119,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isHydrating, setIsHydrating] = useState(true);
   const [apiState, setApiState] = useState<ApiEnvironmentState>(() =>
     getInitialApiEnvironmentState(),
+  );
+  const [preferredApiMode, setPreferredApiModeState] = useState<ApiMode>("online");
+  const [mqttSettings, setMqttSettings] = useState<MqttSettings>(() =>
+    getDefaultMqttSettings(),
   );
 
   const canUseSecureStore = useCallback(async () => {
@@ -126,6 +162,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [canUseSecureStore],
   );
 
+  const persistConnectionConfig = useCallback(
+    async (nextConfig: StoredConnectionConfig) => {
+      try {
+        const available = await canUseSecureStore();
+        if (!available) {
+          return;
+        }
+        await SecureStore.setItemAsync(
+          CONNECTION_STORAGE_KEY,
+          JSON.stringify(nextConfig),
+        );
+      } catch {
+        // Ignore persistence errors.
+      }
+    },
+    [canUseSecureStore],
+  );
+
   const setEvent = useCallback(
     (nextEvent: AppEvent | null) => {
       setEventState(nextEvent);
@@ -135,37 +189,109 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const clearAppState = useCallback(() => {
+    const baseUrls = getConfiguredApiBaseUrls();
+    const modeBaseUrl = resolveModeBaseUrl(preferredApiMode, baseUrls);
+
     setProfile(null);
     setEvent(null);
     setStats(null);
-    setApiState(getInitialApiEnvironmentState());
-  }, [setEvent]);
+    setApiState(getInitialApiEnvironmentState(modeBaseUrl ?? null));
+  }, [preferredApiMode, setEvent]);
 
   useEffect(() => {
     let isActive = true;
-    const restoreEvent = async () => {
+
+    const restoreState = async () => {
+      const defaultMqttSettings = getDefaultMqttSettings();
+      const defaultBaseUrls = getConfiguredApiBaseUrls();
+      let nextPreferredMode: ApiMode = "online";
+      let nextMqttSettings = defaultMqttSettings;
+      let nextBaseUrls = defaultBaseUrls;
+
       try {
         const available = await canUseSecureStore();
         if (!available) {
+          if (isActive) {
+            setGlobalConfiguredApiBaseUrls(defaultBaseUrls);
+            setGlobalPreferredApiMode(nextPreferredMode);
+            setMqttSettings(defaultMqttSettings);
+            setApiState((currentState) =>
+              resetApiEnvironment(
+                currentState,
+                resolveModeBaseUrl(nextPreferredMode, defaultBaseUrls) ?? null,
+              ),
+            );
+          }
           return;
         }
-        const storedEvent = await SecureStore.getItemAsync(EVENT_STORAGE_KEY);
+
+        const [storedEvent, storedConnectionConfig] = await Promise.all([
+          SecureStore.getItemAsync(EVENT_STORAGE_KEY),
+          SecureStore.getItemAsync(CONNECTION_STORAGE_KEY),
+        ]);
+
         if (storedEvent && isActive) {
-          const parsed = JSON.parse(storedEvent) as AppEvent;
-          if (parsed?.id !== undefined && parsed?.id !== null) {
-            setEventState(parsed);
+          const parsedEvent = JSON.parse(storedEvent) as AppEvent;
+          if (parsedEvent?.id !== undefined && parsedEvent?.id !== null) {
+            setEventState(parsedEvent);
+          }
+        }
+
+        if (storedConnectionConfig) {
+          const parsedConfig = JSON.parse(
+            storedConnectionConfig,
+          ) as StoredConnectionConfig;
+          const nextOnlineApiBaseUrl =
+            normalizeApiBaseUrl(parsedConfig.onlineApiBaseUrl) ??
+            defaultBaseUrls.onlineBaseUrl;
+          const nextLocalApiBaseUrl =
+            normalizeApiBaseUrl(parsedConfig.localApiBaseUrl) ??
+            defaultBaseUrls.localBaseUrl;
+          nextBaseUrls = {
+            onlineBaseUrl: nextOnlineApiBaseUrl,
+            localBaseUrl: nextLocalApiBaseUrl,
+          };
+
+          if (parsedConfig.preferredApiMode === "online") {
+            nextPreferredMode = "online";
+          }
+          if (parsedConfig.preferredApiMode === "local") {
+            nextPreferredMode = "local";
+          }
+
+          if (parsedConfig.mqttSettings) {
+            nextMqttSettings = mergeMqttSettings(defaultMqttSettings, {
+              mqtt_protocol: parsedConfig.mqttSettings.protocol,
+              mqtt_server: parsedConfig.mqttSettings.server,
+              mqtt_port: parsedConfig.mqttSettings.port,
+              mqtt_user: parsedConfig.mqttSettings.user,
+              mqtt_pass: parsedConfig.mqttSettings.pass,
+              mqtt_ssl: parsedConfig.mqttSettings.ssl,
+            });
           }
         }
       } catch {
         // Ignore restore failures.
       } finally {
         if (isActive) {
+          setGlobalConfiguredApiBaseUrls(nextBaseUrls);
+          setGlobalPreferredApiMode(nextPreferredMode);
+          setPreferredApiModeState(nextPreferredMode);
+          setMqttSettings(nextMqttSettings);
+          setApiState((currentState) =>
+            resetApiEnvironment(
+              currentState,
+              currentState.sessionBaseUrl ??
+                resolveModeBaseUrl(nextPreferredMode, nextBaseUrls) ??
+                null,
+            ),
+          );
           setIsHydrating(false);
         }
       }
     };
 
-    restoreEvent();
+    void restoreState();
     return () => {
       isActive = false;
     };
@@ -183,6 +309,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setSessionApiBaseUrl = useCallback((baseUrl: string | null | undefined) => {
     const normalizedBaseUrl = normalizeApiBaseUrl(baseUrl);
+    if (normalizedBaseUrl) {
+      const resolvedMode = resolveApiMode(normalizedBaseUrl);
+      setGlobalPreferredApiMode(resolvedMode);
+      setPreferredApiModeState(resolvedMode);
+    }
+
     setApiState((currentState) =>
       resetApiEnvironment(currentState, normalizedBaseUrl),
     );
@@ -193,6 +325,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const markApiReachable = useCallback((baseUrl: string) => {
+    const mode = resolveApiMode(baseUrl);
+    setGlobalPreferredApiMode(mode);
+    setPreferredApiModeState(mode);
     setApiState((currentState) => markApiBaseUrlReachable(currentState, baseUrl));
   }, []);
 
@@ -208,6 +343,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [apiState],
   );
 
+  const applyLoginConnectionSettings = useCallback(
+    async ({ endpoint, mqttSettingsOverrides }: ApplyLoginConnectionSettingsInput) => {
+      const normalizedEndpoint = normalizeApiBaseUrl(endpoint);
+      const currentBaseUrls = getConfiguredApiBaseUrls();
+
+      let nextPreferredMode = preferredApiMode;
+      let nextOnlineApiBaseUrl = currentBaseUrls.onlineBaseUrl;
+      let nextLocalApiBaseUrl = currentBaseUrls.localBaseUrl;
+
+      if (normalizedEndpoint) {
+        nextPreferredMode = resolveApiMode(normalizedEndpoint);
+        if (nextPreferredMode === "local") {
+          nextLocalApiBaseUrl = normalizedEndpoint;
+        } else {
+          nextOnlineApiBaseUrl = normalizedEndpoint;
+        }
+      }
+
+      setGlobalConfiguredApiBaseUrls({
+        onlineBaseUrl: nextOnlineApiBaseUrl,
+        localBaseUrl: nextLocalApiBaseUrl,
+      });
+
+      const nextMqttSettings = mergeMqttSettings(
+        mqttSettings,
+        mqttSettingsOverrides,
+      );
+      const resolvedBaseUrls = getConfiguredApiBaseUrls();
+      const resolvedApiBaseUrl =
+        normalizedEndpoint ??
+        resolveModeBaseUrl(nextPreferredMode, resolvedBaseUrls) ??
+        null;
+
+      setGlobalPreferredApiMode(nextPreferredMode);
+      setPreferredApiModeState(nextPreferredMode);
+      setMqttSettings(nextMqttSettings);
+      setApiState((currentState) =>
+        resetApiEnvironment(currentState, resolvedApiBaseUrl),
+      );
+
+      await persistConnectionConfig({
+        onlineApiBaseUrl: resolvedBaseUrls.onlineBaseUrl,
+        localApiBaseUrl: resolvedBaseUrls.localBaseUrl,
+        preferredApiMode: nextPreferredMode,
+        mqttSettings: nextMqttSettings,
+      });
+
+      return resolvedApiBaseUrl;
+    },
+    [mqttSettings, persistConnectionConfig, preferredApiMode],
+  );
+
   const apiSnapshot = getApiEnvironmentSnapshot(apiState);
 
   const value = useMemo(
@@ -220,6 +407,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       sessionApiBaseUrl: apiSnapshot.sessionBaseUrl,
       onlineApiBaseUrl: apiSnapshot.onlineBaseUrl,
       localApiBaseUrl: apiSnapshot.localBaseUrl,
+      mqttSettings,
       isHydrating,
       setProfileFromUser,
       setEvent,
@@ -231,6 +419,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       getApiBaseUrls: getApiBaseUrlsForRequest,
       markApiReachable,
       markApiUnreachable,
+      applyLoginConnectionSettings,
     }),
     [
       profile,
@@ -241,6 +430,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       apiSnapshot.sessionBaseUrl,
       apiSnapshot.onlineBaseUrl,
       apiSnapshot.localBaseUrl,
+      mqttSettings,
       isHydrating,
       clearAppState,
       applyStatsFromResponse,
@@ -251,6 +441,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       getApiBaseUrlsForRequest,
       markApiReachable,
       markApiUnreachable,
+      applyLoginConnectionSettings,
     ],
   );
 
