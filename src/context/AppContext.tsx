@@ -6,6 +6,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { AppState } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import {
   ApiEnvironmentState,
@@ -28,6 +29,12 @@ import {
   MqttSettings,
   MqttSettingsOverrides,
 } from "../mqtt/mqttConfig";
+import { getDeviceId } from "../device/deviceInfo";
+import {
+  buildBatteryTopic,
+  isMqttConnected,
+  publishMqttJson,
+} from "../mqtt/mqttClient";
 
 export type AppProfile = {
   name: string;
@@ -82,6 +89,7 @@ type StoredConnectionConfig = {
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 const EVENT_STORAGE_KEY = "checkin.event";
 const CONNECTION_STORAGE_KEY = "checkin.connectionConfig";
+const BATTERY_PUBLISH_INTERVAL_MS = 5 * 60 * 1000;
 
 const resolveModeBaseUrl = (
   mode: ApiMode,
@@ -396,6 +404,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const apiSnapshot = getApiEnvironmentSnapshot(apiState);
+
+  useEffect(() => {
+    if (!event?.id) {
+      return;
+    }
+    if (!mqttSettings.server.trim()) {
+      return;
+    }
+
+    let isActive = true;
+
+    const publishBatteryStatus = async () => {
+      if (!isActive || AppState.currentState !== "active") {
+        return;
+      }
+      if (!isMqttConnected(mqttSettings)) {
+        return;
+      }
+
+      const deviceId = await getDeviceId();
+      if (!isActive) {
+        return;
+      }
+
+      const topic = buildBatteryTopic(event.id, deviceId);
+      const published = await publishMqttJson(mqttSettings, topic, {});
+      if (!published) {
+        console.warn("[MQTT][AppProvider] battery:publish-failed", { topic });
+      }
+    };
+
+    void publishBatteryStatus();
+    const intervalId = setInterval(() => {
+      void publishBatteryStatus();
+    }, BATTERY_PUBLISH_INTERVAL_MS);
+
+    return () => {
+      isActive = false;
+      clearInterval(intervalId);
+    };
+  }, [event?.id, mqttSettings]);
 
   const value = useMemo(
     () => ({

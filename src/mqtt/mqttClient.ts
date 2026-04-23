@@ -213,6 +213,21 @@ export const buildCheckinTopic = (
   return `/event/${normalizedEventId}/checkin/${deviceId}/${action}`;
 };
 
+export const buildBatteryTopic = (
+  eventId: string | number,
+  deviceId: string,
+) => {
+  const normalizedEventId = encodeURIComponent(String(eventId));
+  return `/event/${normalizedEventId}/checkin/${deviceId}/battery`;
+};
+
+export const isMqttConnected = (settings: MqttSettings) =>
+  Boolean(
+    sharedClient &&
+      sharedClient.connected &&
+      sharedClientKey === createClientKey(settings),
+  );
+
 export const publishMqttJson = async (
   settings: MqttSettings,
   topic: string,

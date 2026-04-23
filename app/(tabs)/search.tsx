@@ -26,6 +26,7 @@ import {
 } from "../../src/checkin/checkinHelpers";
 import { useApi } from "../../src/api/useApi";
 import { useSessionReset } from "../../src/auth/useSessionReset";
+import { getDeviceBatteryPercentage } from "../../src/device/deviceInfo";
 
 export default function SearchScreen() {
   const [bibQuery, setBibQuery] = useState("");
@@ -139,6 +140,7 @@ export default function SearchScreen() {
     setResults([]);
 
     try {
+      const batteryPercentage = await getDeviceBatteryPercentage();
       const { response, payload, unauthorized } = await request(
         "checkinSearch",
         {
@@ -147,6 +149,7 @@ export default function SearchScreen() {
             value: trimmedQuery,
             parameter: searchParam,
             event: event.id,
+            battery_percentage: batteryPercentage,
           },
           includeContext: false,
         },

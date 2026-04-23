@@ -1,10 +1,13 @@
 import { Stack } from "expo-router";
+import { useKeepAwake } from "expo-keep-awake";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "../src/auth/AuthContext";
 import { CheckinProvider } from "../src/checkin/CheckinContext";
 import { AppProvider } from "../src/context/AppContext";
 
 export default function RootLayout() {
+  useKeepAwake();
+
   return (
     <SafeAreaProvider>
       <AppProvider>

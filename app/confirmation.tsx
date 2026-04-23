@@ -168,6 +168,7 @@ export default function ConfirmationPage() {
         user_id: user.id,
         event_id: event.id,
         ...deviceInfoPayload,
+        battery_percentage: deviceInfoPayload.battery_percentage,
       };
       const confirmTopic = buildCheckinTopic(
         event.id,
